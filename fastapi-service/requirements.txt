@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+supabase
+google-generativeai
+pydantic-settings
+httpx
+python-multipart
+numpy

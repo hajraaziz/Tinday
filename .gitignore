@@ -1,0 +1,42 @@
+# API Keys & Secrets
+.env
+.env.local
+.env.*.local
+
+# Node.js (Express Server)
+express-server/node_modules/
+express-server/npm-debug.log*
+express-server/yarn-debug.log*
+express-server/yarn-error.log*
+express-server/package-lock.json
+express-server/dist/
+express-server/build/
+
+# Python (FastAPI Service)
+fastapi-service/__pycache__/
+fastapi-service/*.py[cod]
+fastapi-service/*$py.class
+fastapi-service/.pytest_cache/
+fastapi-service/.venv/
+fastapi-service/venv/
+fastapi-service/env/
+fastapi-service/pip-log.txt
+fastapi-service/pip-delete-this-directory.txt
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
