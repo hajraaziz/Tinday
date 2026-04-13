@@ -384,21 +384,21 @@ Complete these steps in the Supabase dashboard before writing any application co
 
 ## Phase 0 — Project Bootstrap
 
-- [ ] Create the monorepo folder structure exactly as shown above
-- [ ] Initialise `express-server/` with `npm init` and install dependencies:
+- [x] Create the monorepo folder structure exactly as shown above
+- [x] Initialise `express-server/` with `npm init` and install dependencies:
   ```
   express @supabase/supabase-js socket.io axios zod
   morgan helmet cors express-async-errors express-rate-limit dotenv
   ```
-- [ ] Install dev dependencies: `nodemon eslint prettier`
-- [ ] Initialise `fastapi-service/` and create `requirements.txt`:
+- [x] Install dev dependencies: `nodemon eslint prettier`
+- [x] Initialise `fastapi-service/` and create `requirements.txt`:
   ```
   fastapi uvicorn[standard] supabase google-generativeai
   pydantic-settings httpx python-multipart numpy
   ```
-- [ ] Create `docker-compose.yml` with two services — `express` and `fastapi`
+- [x] Create `docker-compose.yml` with two services — `express` and `fastapi`
   - Both connect to the hosted Supabase project via env vars
-- [ ] Create `.env.example`:
+- [x] Create `.env.example`:
 
   ```
   # Supabase
@@ -418,7 +418,7 @@ Complete these steps in the Supabase dashboard before writing any application co
   NODE_ENV=development
   ```
 
-- [ ] Write `src/config/supabase.js`:
+- [x] Write `src/config/supabase.js`:
 
   ```js
   import { createClient } from "@supabase/supabase-js";
@@ -429,7 +429,7 @@ Complete these steps in the Supabase dashboard before writing any application co
   );
   ```
 
-- [ ] Write `config/supabase.py` (FastAPI):
+- [x] Write `config/supabase.py` (FastAPI):
 
   ```python
   from supabase import create_client, Client
@@ -441,9 +441,9 @@ Complete these steps in the Supabase dashboard before writing any application co
   )
   ```
 
-- [ ] Write `src/index.js` — create Express app, mount all module routers, attach Socket.io, start server
-- [ ] Write `main.py` — create FastAPI app, include all routers, add a startup event that makes a test query to Supabase to confirm connectivity
-- [ ] Verify: `docker-compose up` starts both services and both connect to Supabase successfully
+- [x] Write `src/index.js` — create Express app, mount all module routers, attach Socket.io, start server
+- [x] Write `main.py` — create FastAPI app, include all routers, add a startup event that makes a test query to Supabase to confirm connectivity
+- [x] Verify: `docker-compose up` starts both services and both connect to Supabase successfully
 
 ---
 
@@ -451,7 +451,7 @@ Complete these steps in the Supabase dashboard before writing any application co
 
 Supabase Auth handles the entire auth lifecycle. Express only needs to verify the JWT that Supabase issues.
 
-- [ ] **Register** `POST /api/auth/register`
+- [x] **Register** `POST /api/auth/register`
   - Accept `{ email, password, name }`
   - Validate with Zod: email format, password min 8 chars, name non-empty
   - Call `supabase.auth.admin.createUser({ email, password, email_confirm: true })`
@@ -459,43 +459,43 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
   - Fire-and-forget: call FastAPI `POST /embed` with the new profile
   - Return `{ message: "Account created. Check your email to confirm." }`
 
-- [ ] **Login** `POST /api/auth/login`
+- [x] **Login** `POST /api/auth/login`
   - Accept `{ email, password }`
   - Call `supabase.auth.signInWithPassword({ email, password })`
   - Return `{ access_token, refresh_token, user }` from the Supabase response
 
-- [ ] **Refresh token** `POST /api/auth/refresh`
+- [x] **Refresh token** `POST /api/auth/refresh`
   - Accept `{ refresh_token }`
   - Call `supabase.auth.refreshSession({ refresh_token })`
   - Return new `access_token` and `refresh_token`
 
-- [ ] **Logout** `POST /api/auth/logout`
+- [x] **Logout** `POST /api/auth/logout`
   - Call `supabase.auth.admin.signOut(req.user.id)`
   - Return 200
 
-- [ ] **JWT middleware** `src/middleware/auth.js`
+- [x] **JWT middleware** `src/middleware/auth.js`
   - Extract Bearer token from the `Authorization` header
   - Call `supabase.auth.getUser(token)` to validate and decode
   - Attach `req.user = { id, email }` on success; return 401 on failure
   - Apply to all routes except `POST /api/auth/register` and `POST /api/auth/login`
 
-- [ ] **Get current user** `GET /api/auth/me`
+- [x] **Get current user** `GET /api/auth/me`
   - Query `profiles` for `req.user.id` and return the row
 
 ---
 
 ## Phase 2 — Profiles
 
-- [ ] **Get own profile** `GET /api/profiles/me`
+- [x] **Get own profile** `GET /api/profiles/me`
   - `supabase.from('profiles').select('*').eq('id', req.user.id).single()`
 
-- [ ] **Update own profile** `PUT /api/profiles/me`
+- [x] **Update own profile** `PUT /api/profiles/me`
   - Accept partial fields: `name`, `about`, `experience_years`, `skills`, `roles`, `projects`, `preferences`
   - Validate with Zod
   - `supabase.from('profiles').update(fields).eq('id', req.user.id)`
   - Fire-and-forget: call FastAPI `POST /embed` after the response is sent
 
-- [ ] **Upload profile photo** `POST /api/profiles/me/photo`
+- [x] **Upload profile photo** `POST /api/profiles/me/photo`
   - Accept `multipart/form-data` — jpg, png, webp only, max 5MB
   - Upload to Supabase Storage:
     ```js
@@ -508,14 +508,14 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
     ```
   - Update `profiles.avatar_url` with the public URL
 
-- [ ] **Upload project media** `POST /api/profiles/me/projects/media`
+- [x] **Upload project media** `POST /api/profiles/me/projects/media`
   - Upload to the `projects` bucket under `{userId}/{timestamp}.{ext}`
   - Return the public URL for the client to store in the projects JSON array
 
-- [ ] **Get profile by ID** `GET /api/profiles/:userId`
+- [x] **Get profile by ID** `GET /api/profiles/:userId`
   - Query `profiles` by the given userId and return public fields
 
-- [ ] **Search profiles** `GET /api/profiles/search`
+- [x] **Search profiles** `GET /api/profiles/search`
   - Query params: `skills`, `min_experience`, `max_experience`, `page`, `limit`
   - Use `.contains('skills', skillsArray)`, `.gte`, `.lte`, and `.range()` on the Supabase client
   - Pass `{ count: 'exact' }` to `select()` for total count in the response

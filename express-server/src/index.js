@@ -8,6 +8,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import authRoutes from "./modules/auth/auth.routes.js";
+import profilesRoutes from "./modules/profiles/profiles.routes.js";
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/profiles", profilesRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date(), service: "express" });
