@@ -7,6 +7,8 @@ import helmet from "helmet";
 import cors from "cors";
 import dotenv from "dotenv";
 
+import authRoutes from "./modules/auth/auth.routes.js";
+
 dotenv.config();
 
 const app = express();
@@ -22,13 +24,26 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 
+// Routes
+app.use("/api/auth", authRoutes);
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date(), service: "express" });
 });
 
-// io.on("connection", (socket) => {
-//   console.log("Client connected");
-// });
+// Error Handling (Basic for now, will be expanded in Phase 7)
+app.use((err, req, res, next) => {
+  console.error(err);
+  const status = err.status || 500;
+  res.status(status).json({
+    error: err.message || "Internal Server Error",
+  });
+});
+
+// Socket.io
+io.on("connection", (socket) => {
+  console.log("Client connected");
+});
 
 const PORT = process.env.PORT || 4000;
 
