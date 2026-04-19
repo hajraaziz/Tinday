@@ -9,6 +9,9 @@ import dotenv from "dotenv";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import profilesRoutes from "./modules/profiles/profiles.routes.js";
+import swipesRoutes from "./modules/swipes/swipes.routes.js";
+import matchesRoutes from "./modules/matches/matches.routes.js";
+import exploreRoutes from "./modules/explore/explore.routes.js";
 
 dotenv.config();
 
@@ -23,11 +26,22 @@ const io = new Server(httpServer, {
 app.use(helmet());
 app.use(cors());
 app.use(morgan("dev"));
+app.use(
+  "/api/profiles/me/photo",
+  express.raw({ type: "image/*", limit: "5mb" }),
+);
+app.use(
+  "/api/profiles/me/projects/media",
+  express.raw({ type: "image/*", limit: "5mb" }),
+);
 app.use(express.json());
 
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/profiles", profilesRoutes);
+app.use("/api/swipes", swipesRoutes);
+app.use("/api/matches", matchesRoutes);
+app.use("/api/explore", exploreRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date(), service: "express" });

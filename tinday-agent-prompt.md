@@ -34,7 +34,7 @@ The mobile client is React Native (Expo). You are only building the backend.
 | File storage              | Supabase Storage                     |
 | Realtime (DB events)      | Supabase Realtime                    |
 | Embeddings                | Gemini `text-embedding-004`          |
-| LLM                       | Gemini 1.5 Flash via Google SDK     |
+| LLM                       | Gemini 1.5 Flash via Google SDK      |
 | Vector math               | numpy                                |
 | Containerization          | Docker + Docker Compose              |
 
@@ -524,14 +524,14 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
 
 ## Phase 3 — Swipes and Matches
 
-- [ ] **Record a swipe** `POST /api/swipes`
+- [x] **Record a swipe** `POST /api/swipes`
   - Accept `{ receiver_id, direction }` ("RIGHT" or "LEFT")
   - Validate: `receiver_id !== req.user.id`
   - Insert into `swipes` — return 409 on unique constraint violation
   - If `direction === "RIGHT"`, check for a mutual right swipe and create a `matches` row if found — Supabase Realtime broadcasts the new match row automatically
   - Fire-and-forget: call FastAPI `POST /update-preference` after the response is sent
 
-- [ ] **Get matches** `GET /api/matches`
+- [x] **Get matches** `GET /api/matches`
   - Query matches where `user_a_id = req.user.id OR user_b_id = req.user.id`
   - Join both users' profiles using Supabase's foreign key join syntax:
     ```js
@@ -547,7 +547,7 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
       .or(`user_a_id.eq.${req.user.id},user_b_id.eq.${req.user.id}`);
     ```
 
-- [ ] **Get explore feed** `GET /api/explore`
+- [x] **Get explore feed** `GET /api/explore`
   - Fetch already-swiped IDs for this user from `swipes`
   - Call FastAPI `POST /recommend` with `{ userId, filters, excludeIds }`
   - Fetch full profiles for the returned IDs from Supabase
@@ -813,7 +813,7 @@ This module is a thin HTTP client. It contains no AI logic.
               contents=[
                   {"role": "user", "parts": [system_prompt]}
               ] + [
-                  {"role": m["role"], "parts": [m["content"]]} 
+                  {"role": m["role"], "parts": [m["content"]]}
                   for m in conversation_history
               ] + [
                   {"role": "user", "parts": [message]}

@@ -1,0 +1,63 @@
+import { supabase } from "../../config/supabase.js";
+import axios from "axios";
+
+const FASTAPI_URL = process.env.FASTAPI_INTERNAL_URL || "http://fastapi:8000";
+const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET;
+
+export const recordSwipe = async (giverId, receiverId, direction) => {
+  // 1. Insert the swipe
+  const { data: swipe, error: swipeError } = await supabase
+    .from("swipes")
+    .insert({ giver_id: giverId, receiver_id: receiverId, direction })
+    .select()
+    .single();
+
+  if (swipeError) {
+    if (swipeError.code === "23505") {
+      const error = new Error("You have already swiped on this user");
+      error.status = 409;
+      throw error;
+    }
+    throw swipeError;
+  }
+
+  let match = null;
+
+  // 2. If direction is RIGHT, check for mutual swipe
+  if (direction === "RIGHT") {
+    const { data: mutualSwipe, error: mutualError } = await supabase
+      .from("swipes")
+      .select("*")
+      .eq("giver_id", receiverId)
+      .eq("receiver_id", giverId)
+      .eq("direction", "RIGHT")
+      .single();
+
+    if (mutualSwipe && !mutualError) {
+      // Create a match
+      const { data: newMatch, error: matchError } = await supabase
+        .from("matches")
+        .insert({
+          user_a_id: giverId < receiverId ? giverId : receiverId,
+          user_b_id: giverId < receiverId ? receiverId : giverId,
+        })
+        .select()
+        .single();
+
+      if (!matchError) {
+        match = newMatch;
+      }
+    }
+  }
+
+  // 3. Fire-and-forget: call FastAPI /update-preference
+  axios
+    .post(
+      `${FASTAPI_URL}/update-preference`,
+      { user_id: giverId, target_user_id: receiverId, direction },
+      { headers: { "X-Internal-Key": INTERNAL_SECRET } }
+    )
+    .catch((err) => console.error("FastAPI update-preference failed:", err.message));
+
+  return { swipe, match };
+};

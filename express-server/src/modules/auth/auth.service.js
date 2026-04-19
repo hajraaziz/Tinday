@@ -6,7 +6,10 @@ const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET;
 
 export const register = async ({ email, password, name }) => {
   // 1. Create user in Supabase Auth
-  const { data: { user }, error: authError } = await supabase.auth.admin.createUser({
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -20,7 +23,7 @@ export const register = async ({ email, password, name }) => {
     .insert({ id: user.id, name });
 
   if (profileError) {
-    // Attempt cleanup: delete user if profile fails? 
+    // Attempt cleanup: delete user if profile fails?
     // For simplicity, we'll just log and throw.
     console.error("Profile creation failed:", profileError);
     throw profileError;
@@ -28,10 +31,13 @@ export const register = async ({ email, password, name }) => {
 
   // 3. Fire-and-forget: call FastAPI /embed
   const profileText = `${name}`; // Initial text for embedding
-  axios.post(`${FASTAPI_URL}/embed`, 
-    { user_id: user.id, profile_text: profileText },
-    { headers: { "X-Internal-Key": INTERNAL_SECRET } }
-  ).catch(err => console.error("FastAPI embed call failed:", err.message));
+  axios
+    .post(
+      `${FASTAPI_URL}/embed`,
+      { user_id: user.id, profile_text: profileText },
+      { headers: { "X-Internal-Key": INTERNAL_SECRET } },
+    )
+    .catch((err) => console.error("FastAPI embed call failed:", err.message));
 
   return { message: "Account created successfully." };
 };
@@ -55,8 +61,8 @@ export const refresh = async ({ refresh_token }) => {
   return data;
 };
 
-export const logout = async (userId) => {
-  const { error } = await supabase.auth.admin.signOut(userId);
+export const logout = async (token) => {
+  const { error } = await supabase.auth.admin.signOut(token);
   if (error) throw error;
 };
 
@@ -65,8 +71,9 @@ export const getCurrentUser = async (userId) => {
     .from("profiles")
     .select("*")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) throw { status: 404, message: "Profile not found" };
   return data;
 };

@@ -12,15 +12,15 @@ The system is composed of two primary services and a hosted database layer:
 
 ## 🛠️ Tech Stack
 
-| Component | Technology |
-| :--- | :--- |
-| **Runtime** | Node.js (LTS), Python 3.10+ |
-| **Frameworks** | Express.js, FastAPI |
-| **Database** | Supabase (PostgreSQL + pgvector) |
-| **Real-time** | Supabase Realtime & Socket.io (Presence/Typing) |
-| **AI/LLM** | Gemini 1.5 Flash & text-embedding-004 |
-| **Validation** | Zod (Node), Pydantic (Python) |
-| **Containerization** | Docker & Docker Compose |
+| Component            | Technology                                      |
+| :------------------- | :---------------------------------------------- |
+| **Runtime**          | Node.js (LTS), Python 3.10+                     |
+| **Frameworks**       | Express.js, FastAPI                             |
+| **Database**         | Supabase (PostgreSQL + pgvector)                |
+| **Real-time**        | Supabase Realtime & Socket.io (Presence/Typing) |
+| **AI/LLM**           | Gemini 1.5 Flash & text-embedding-004           |
+| **Validation**       | Zod (Node), Pydantic (Python)                   |
+| **Containerization** | Docker & Docker Compose                         |
 
 ## 📁 Repository Structure
 
