@@ -81,3 +81,44 @@ The Express server will be available at `http://localhost:4000` and the FastAPI 
 - **JWT Verification:** All client requests are verified via Supabase Auth.
 - **Service-to-Service:** FastAPI rejects any request missing the `X-Internal-Key` matching the `INTERNAL_SERVICE_SECRET`.
 - **RLS:** Row Level Security is enforced at the database level to ensure data privacy.
+
+## 📱 Mobile Client Integration
+
+### Messaging & Real-time
+
+Tinday uses a hybrid approach for real-time features to optimize performance and battery life:
+
+#### 1. Message Delivery (Supabase Realtime)
+Use the Supabase client to subscribe directly to the `messages` table for new messages in a specific match. This bypasses the Express server for faster delivery.
+
+```javascript
+supabase
+  .channel('match-room')
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `match_id=eq.${matchId}`
+    },
+    (payload) => {
+      console.log('New message received!', payload.new);
+      // Update your local state
+    }
+  )
+  .subscribe();
+```
+
+#### 2. Presence & Typing Indicators (Socket.io)
+Socket.io is used for transient events that don't need to be persisted in the database.
+
+- **Authentication:** Pass the Supabase JWT in the `auth` object when connecting.
+- **Events:**
+  - `join_match`: Send `matchId` to join a room.
+  - `typing_start`: Send `matchId` when the user starts typing.
+  - `typing_stop`: Send `matchId` when the user stops typing.
+- **Listening:**
+  - `user_typing`: Receive `{ matchId, userId }`.
+  - `user_stopped_typing`: Receive `{ matchId, userId }`.
+  - `user_offline`: Receive `{ userId }`.

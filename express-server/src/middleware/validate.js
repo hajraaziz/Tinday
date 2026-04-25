@@ -8,10 +8,11 @@ export const validate = (schema) => (req, res, next) => {
     if (error instanceof ZodError) {
       return res.status(422).json({
         error: "Validation error",
-        details: error.errors.map((err) => ({
-          path: err.path.join("."),
-          message: err.message,
-        })),
+        details:
+          error.errors?.map((err) => ({
+            path: err.path.join("."),
+            message: err.message,
+          })) ?? [],
       });
     }
     next(error);

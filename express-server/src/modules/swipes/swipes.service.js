@@ -31,9 +31,12 @@ export const recordSwipe = async (giverId, receiverId, direction) => {
       .eq("giver_id", receiverId)
       .eq("receiver_id", giverId)
       .eq("direction", "RIGHT")
-      .single();
+      .maybeSingle();
+
+    console.log("Mutual swipe check result:", mutualSwipe, mutualError);
 
     if (mutualSwipe && !mutualError) {
+      console.log("Mutual swipe found, creating match...");
       // Create a match
       const { data: newMatch, error: matchError } = await supabase
         .from("matches")
@@ -43,6 +46,9 @@ export const recordSwipe = async (giverId, receiverId, direction) => {
         })
         .select()
         .single();
+
+      console.log("Match insert error:", matchError);
+      console.log("Match insert result:", newMatch);
 
       if (!matchError) {
         match = newMatch;
@@ -55,9 +61,11 @@ export const recordSwipe = async (giverId, receiverId, direction) => {
     .post(
       `${FASTAPI_URL}/update-preference`,
       { user_id: giverId, target_user_id: receiverId, direction },
-      { headers: { "X-Internal-Key": INTERNAL_SECRET } }
+      { headers: { "X-Internal-Key": INTERNAL_SECRET } },
     )
-    .catch((err) => console.error("FastAPI update-preference failed:", err.message));
+    .catch((err) =>
+      console.error("FastAPI update-preference failed:", err.message),
+    );
 
   return { swipe, match };
 };

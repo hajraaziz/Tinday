@@ -557,24 +557,24 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
 
 ## Phase 4 — Messaging
 
-- [ ] **Get messages for a match** `GET /api/matches/:matchId/messages`
+- [x] **Get messages for a match** `GET /api/matches/:matchId/messages`
   - Verify the authenticated user belongs to the match — return 403 if not
   - Fetch messages with `.eq('match_id', matchId).order('created_at', { ascending: true })`
   - Support pagination via `.range(from, to)`
   - Bulk-update `read_at` for unread messages where `sender_id != req.user.id`
 
-- [ ] **Send a message** `POST /api/matches/:matchId/messages`
+- [x] **Send a message** `POST /api/matches/:matchId/messages`
   - Verify match membership
   - Insert into `messages` — Supabase Realtime broadcasts the insert automatically
   - Emit a `typing_stopped` Socket.io event to clear typing state in the room
 
-- [ ] **Get inbox** `GET /api/inbox`
+- [x] **Get inbox** `GET /api/inbox`
   - Fetch all matches for the user with the other user's profile
   - For each match, fetch the latest message
   - Sort by latest message timestamp descending
   - Include unread message count per match
 
-- [ ] **Supabase Realtime — document the client subscription pattern in `README.md`** for the mobile team:
+- [x] **Supabase Realtime — document the client subscription pattern in `README.md`** for the mobile team:
 
   ```js
   supabase
@@ -594,7 +594,7 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
     .subscribe();
   ```
 
-- [ ] **Socket.io — presence and typing only** `src/config/socket.js`
+- [x] **Socket.io — presence and typing only** `src/config/socket.js`
   - On `connection`: verify the JWT via `supabase.auth.getUser()`; disconnect if invalid
   - On `join_match`: verify match membership, then `socket.join(matchId)`
   - On `typing_start`: emit `user_typing` to the room (excluding the sender)

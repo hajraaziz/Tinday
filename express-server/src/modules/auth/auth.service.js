@@ -1,4 +1,4 @@
-import { supabase } from "../../config/supabase.js";
+import { supabase, supabaseAuth } from "../../config/supabase.js";
 import axios from "axios";
 
 const FASTAPI_URL = process.env.FASTAPI_INTERNAL_URL || "http://fastapi:8000";
@@ -43,7 +43,7 @@ export const register = async ({ email, password, name }) => {
 };
 
 export const login = async ({ email, password }) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabaseAuth.auth.signInWithPassword({
     email,
     password,
   });
@@ -53,7 +53,7 @@ export const login = async ({ email, password }) => {
 };
 
 export const refresh = async ({ refresh_token }) => {
-  const { data, error } = await supabase.auth.refreshSession({
+  const { data, error } = await supabaseAuth.auth.refreshSession({
     refresh_token,
   });
 

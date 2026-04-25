@@ -3,12 +3,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
-console.log(
-  "KEY PREVIEW:",
-  process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 30),
-);
-
 export const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -16,6 +10,19 @@ export const supabase = createClient(
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+      detectSessionInUrl: false,
+    },
+  },
+);
+
+export const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
     },
   },
 );

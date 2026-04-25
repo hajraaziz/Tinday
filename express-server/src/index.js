@@ -1,27 +1,26 @@
 import "express-async-errors";
 import express from "express";
 import { createServer } from "http";
-import { Server } from "socket.io";
 import morgan from "morgan";
 import helmet from "helmet";
 import cors from "cors";
 import dotenv from "dotenv";
 
+import { setupSocket } from "./config/socket.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import profilesRoutes from "./modules/profiles/profiles.routes.js";
 import swipesRoutes from "./modules/swipes/swipes.routes.js";
 import matchesRoutes from "./modules/matches/matches.routes.js";
 import exploreRoutes from "./modules/explore/explore.routes.js";
+import messagingRoutes from "./modules/messaging/messaging.routes.js";
 
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-  },
-});
+
+// Setup Socket.io
+setupSocket(httpServer);
 
 app.use(helmet());
 app.use(cors());
@@ -42,6 +41,7 @@ app.use("/api/profiles", profilesRoutes);
 app.use("/api/swipes", swipesRoutes);
 app.use("/api/matches", matchesRoutes);
 app.use("/api/explore", exploreRoutes);
+app.use("/api/messaging", messagingRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date(), service: "express" });
@@ -54,11 +54,6 @@ app.use((err, req, res, next) => {
   res.status(status).json({
     error: err.message || "Internal Server Error",
   });
-});
-
-// Socket.io
-io.on("connection", (socket) => {
-  console.log("Client connected");
 });
 
 const PORT = process.env.PORT || 4000;

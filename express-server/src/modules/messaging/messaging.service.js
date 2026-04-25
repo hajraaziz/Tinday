@@ -1,0 +1,135 @@
+import { supabase } from "../../config/supabase.js";
+
+/**
+ * Verify if a user is part of a match
+ */
+export const verifyMatchMembership = async (matchId, userId) => {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("user_a_id, user_b_id")
+    .eq("id", matchId)
+    .single();
+
+  if (error || !data) {
+    const err = new Error("Match not found");
+    err.status = 404;
+    throw err;
+  }
+
+  if (data.user_a_id !== userId && data.user_b_id !== userId) {
+    const err = new Error("Access denied: Not a member of this match");
+    err.status = 403;
+    throw err;
+  }
+
+  return data;
+};
+
+/**
+ * Get messages for a match with pagination
+ */
+export const getMessages = async (matchId, userId, from = 0, to = 49) => {
+  await verifyMatchMembership(matchId, userId);
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("match_id", matchId)
+    .order("created_at", { ascending: true })
+    .range(from, to);
+
+  if (error) throw error;
+
+  // Bulk update unread messages as read
+  // Fire and forget
+  supabase
+    .from("messages")
+    .update({ read_at: new Date().toISOString() })
+    .eq("match_id", matchId)
+    .neq("sender_id", userId)
+    .is("read_at", null)
+    .then(({ error: updateError }) => {
+      if (updateError) console.error("Error updating read_at:", updateError);
+    });
+
+  return data;
+};
+
+/**
+ * Send a message to a match
+ */
+export const sendMessage = async (matchId, userId, content) => {
+  await verifyMatchMembership(matchId, userId);
+
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({
+      match_id: matchId,
+      sender_id: userId,
+      content,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Get inbox with latest message and unread count
+ */
+export const getInbox = async (userId) => {
+  // Fetch all matches for the user
+  const { data: matches, error: matchesError } = await supabase
+    .from("matches")
+    .select(
+      `
+      id,
+      created_at,
+      user_a:profiles!matches_user_a_id_fkey(id, name, avatar_url, skills),
+      user_b:profiles!matches_user_b_id_fkey(id, name, avatar_url, skills)
+    `,
+    )
+    .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`);
+
+  if (matchesError) throw matchesError;
+
+  const inbox = await Promise.all(
+    matches.map(async (match) => {
+      const otherUser =
+        match.user_a.id === userId ? match.user_b : match.user_a;
+
+      // Get latest message
+      const { data: latestMessage } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("match_id", match.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Get unread count
+      const { count: unreadCount } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("match_id", match.id)
+        .neq("sender_id", userId)
+        .is("read_at", null);
+
+      return {
+        match_id: match.id,
+        other_user: otherUser,
+        latest_message: latestMessage || null,
+        unread_count: unreadCount || 0,
+        last_activity: latestMessage
+          ? latestMessage.created_at
+          : match.created_at,
+      };
+    }),
+  );
+
+  // Sort by last activity descending
+  return inbox.sort(
+    (a, b) => new Date(b.last_activity) - new Date(a.last_activity),
+  );
+};
