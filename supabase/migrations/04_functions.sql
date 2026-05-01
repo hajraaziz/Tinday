@@ -1,7 +1,7 @@
 -- Upsert a profile embedding vector
 create or replace function upsert_embedding(
   target_user_id uuid,
-  embedding_vector vector(768)
+  embedding_vector vector(3072)
 )
 returns void
 language plpgsql
@@ -25,7 +25,7 @@ security definer
 as $$
 begin
   insert into user_preferences(user_id, preference_vector)
-  values (target_user_id, array_fill(0::float, array[768])::vector)
+  values (target_user_id, array_fill(0::float, array[3072])::vector)
   on conflict (user_id) do nothing;
 end;
 $$;
@@ -33,7 +33,7 @@ $$;
 -- Upsert a learned preference vector
 create or replace function upsert_preference_vector(
   target_user_id uuid,
-  pref_vector    vector(768)
+  pref_vector    vector(3072)
 )
 returns void
 language plpgsql
@@ -50,7 +50,7 @@ $$;
 
 -- Cosine similarity search with filters — returns ranked user IDs
 create or replace function match_profiles(
-  query_vector        vector(768),
+  query_vector        vector(3072),
   requesting_user_id  uuid,
   exclude_ids         uuid[],
   skills_filter       text[],
@@ -81,7 +81,7 @@ $$;
 
 -- Fetch top-N similar profiles for RAG context (used by the chat endpoint)
 create or replace function match_profiles_for_chat(
-  query_vector       vector(768),
+  query_vector       vector(3072),
   requesting_user_id uuid,
   result_limit       int
 )

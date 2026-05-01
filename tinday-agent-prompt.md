@@ -607,22 +607,22 @@ Supabase Auth handles the entire auth lifecycle. Express only needs to verify th
 
 This module is a thin HTTP client. It contains no AI logic.
 
-- [ ] **Create axios instance** in `ai-proxy.service.js`
+- [x] **Create axios instance** in `ai-proxy.service.js`
   - Base URL: `process.env.FASTAPI_INTERNAL_URL`
   - Default header: `X-Internal-Key: process.env.INTERNAL_SERVICE_SECRET`
   - Timeout: 30s for standard requests, 60s for streaming chat
 
-- [ ] **Proxy: recommend** `GET /api/ai/recommend`
+- [x] **Proxy: recommend** `GET /api/ai/recommend`
   - Fetch already-swiped IDs from Supabase
   - Call FastAPI `POST /recommend` with `{ userId, filters, excludeIds }`
   - Return the ranked profile list
 
-- [ ] **Proxy: chat** `POST /api/ai/chat`
+- [x] **Proxy: chat** `POST /api/ai/chat`
   - Accept `{ message, conversation_history[] }`
   - Forward to FastAPI `POST /chat`
   - Set `res.setHeader('Content-Type', 'text/event-stream')` and pipe the streaming response
 
-- [ ] **Proxy: share profile card** `POST /api/ai/share-profile`
+- [x] **Proxy: share profile card** `POST /api/ai/share-profile`
   - Accept `{ profile_id }`
   - Fetch the profile from Supabase, forward to FastAPI `POST /chat` with the profile as context
   - Return the AI's analysis
@@ -633,7 +633,7 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ### Setup
 
-- [ ] Write `config/settings.py` using `pydantic-settings`:
+- [x] Write `config/settings.py` using `pydantic-settings`:
 
   ```python
   from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -649,11 +649,11 @@ This module is a thin HTTP client. It contains no AI logic.
   settings = Settings()
   ```
 
-- [ ] Write `config/supabase.py` — initialise the supabase-py client with the service-role key (shown in Phase 0)
+- [x] Write `config/supabase.py` — initialise the supabase-py client with the service-role key (shown in Phase 0)
 
-- [ ] Write `schemas/models.py` — Pydantic models for all request/response bodies
+- [x] Write `schemas/models.py` — Pydantic models for all request/response bodies
 
-- [ ] Add `X-Internal-Key` middleware in `main.py`:
+- [x] Add `X-Internal-Key` middleware in `main.py`:
 
   ```python
   from fastapi import Request
@@ -668,7 +668,7 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ### Embedding endpoint
 
-- [ ] **`POST /embed`** (`routers/embed.py`)
+- [x] **`POST /embed`** (`routers/embed.py`)
   - Request body: `{ user_id: str, profile_text: str }`
   - `profile_text` is constructed by Express: `about + skills.join(', ') + roles.join(', ') + JSON.stringify(preferences)`
   - In `embedding_service.py`: call Gemini `text-embedding-004` — returns a 768-dim float list
@@ -693,7 +693,7 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ### Recommendation endpoint
 
-- [ ] **`POST /recommend`** (`routers/recommend.py`)
+- [x] **`POST /recommend`** (`routers/recommend.py`)
   - Request body: `{ user_id, filters: { skills, min_experience, max_experience }, limit, exclude_ids[] }`
   - In `recommendation_service.py`:
     - Fetch the user's `preference_vector` from `user_preferences`:
@@ -722,7 +722,7 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ### Preference update endpoint
 
-- [ ] **`POST /update-preference`** (`routers/preference.py`)
+- [x] **`POST /update-preference`** (`routers/preference.py`)
   - Request body: `{ user_id, target_user_id, direction }` ("RIGHT" or "LEFT")
   - In `preference_service.py`:
     - Fetch `target_profile.embedding` from `profiles`:
@@ -767,7 +767,7 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ### Chat endpoint
 
-- [ ] **`POST /chat`** (`routers/chat.py`)
+- [x] **`POST /chat`** (`routers/chat.py`)
   - Request body: `{ user_id, message, conversation_history: [{ role, content }] }`
   - In `chat_service.py`:
     - Embed the user's message using the embeddings API

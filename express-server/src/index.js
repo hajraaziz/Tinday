@@ -13,6 +13,7 @@ import swipesRoutes from "./modules/swipes/swipes.routes.js";
 import matchesRoutes from "./modules/matches/matches.routes.js";
 import exploreRoutes from "./modules/explore/explore.routes.js";
 import messagingRoutes from "./modules/messaging/messaging.routes.js";
+import aiProxyRoutes from "./modules/ai-proxy/ai-proxy.routes.js";
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.use("/api/swipes", swipesRoutes);
 app.use("/api/matches", matchesRoutes);
 app.use("/api/explore", exploreRoutes);
 app.use("/api/messaging", messagingRoutes);
+app.use("/api/ai", aiProxyRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date(), service: "express" });
