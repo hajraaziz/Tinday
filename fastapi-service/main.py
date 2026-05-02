@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from config.supabase import supabase
 from config.settings import settings
 
@@ -11,6 +12,31 @@ app.include_router(embed.router, tags=["AI"])
 app.include_router(recommend.router, tags=["AI"])
 app.include_router(chat.router, tags=["AI"])
 app.include_router(preference.router, tags=["AI"])
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation error",
+            "details": exc.errors()
+        },
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail},
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    print(f"Unhandled error: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal Server Error"},
+    )
 
 @app.middleware("http")
 async def verify_internal_key(request: Request, call_next):

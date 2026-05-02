@@ -830,7 +830,7 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ## Phase 7 — Error Handling and Validation
 
-- [ ] Write `src/middleware/errorHandler.js` (Express):
+- [x] Write `src/middleware/errorHandler.js` (Express):
   - Catch all errors via `express-async-errors`
   - Supabase unique violation (Postgres code `23505`) → 409 with human-readable message
   - Supabase `PGRST116` (no rows found) → 404
@@ -838,14 +838,14 @@ This module is a thin HTTP client. It contains no AI logic.
   - Supabase auth errors → 401
   - All other errors → 500 with sanitised message (no stack traces in production)
 
-- [ ] Write `src/middleware/validate.js` — higher-order function wrapping Zod schema validation for `req.body`
+- [x] Write `src/middleware/validate.js` — higher-order function wrapping Zod schema validation for `req.body`
 
-- [ ] Add FastAPI exception handlers in `main.py`:
+- [x] Add FastAPI exception handlers in `main.py`:
   - `RequestValidationError` → 422 with field details
   - `Exception` catch-all → 500 with sanitised message
   - `HTTPException` passthrough
 
-- [ ] Add rate limiting in Express using `express-rate-limit`:
+- [x] Add rate limiting in Express using `express-rate-limit`:
   - Global: 100 requests per minute per IP
   - Auth routes: 10 requests per minute per IP
 
