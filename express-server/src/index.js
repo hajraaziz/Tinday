@@ -35,7 +35,7 @@ const globalLimiter = rateLimit({
 // Auth Rate Limiter
 const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10,
+  max: process.env.NODE_ENV === "test" ? 50 : 10,
   message: {
     error: "Too many login/register attempts, please try again later.",
   },
@@ -74,6 +74,10 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
 
-httpServer.listen(PORT, () => {
-  console.log(`Express server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  httpServer.listen(PORT, () => {
+    console.log(`Express server running on port ${PORT}`);
+  });
+}
+
+export { app, httpServer };

@@ -853,15 +853,14 @@ This module is a thin HTTP client. It contains no AI logic.
 
 ## Phase 8 — Testing
 
-- [ ] Install Jest and Supertest in `express-server/`
-- [ ] Install Pytest and `httpx` in `fastapi-service/`
-- [ ] Create a separate Supabase project for testing — use its credentials in the test env
-- [ ] Write integration tests for auth routes — register, login, token refresh
-- [ ] Write integration tests for swipe + match creation flow
-- [ ] Write integration tests for photo upload to Supabase Storage
-- [ ] Write Pytest unit tests for `preference_service.py` — test vector update math with numpy assertions
-- [ ] Write Pytest unit tests for `recommendation_service.py` — mock supabase-py and assert ranked order
-- [ ] Write Pytest integration tests for `/embed`, `/recommend`, and `/chat` using `httpx.AsyncClient` against the test Supabase project
+- [x] Install Jest and Supertest in `express-server/`
+- [x] Install Pytest and `httpx` in `fastapi-service/`
+- [x] Write integration tests for auth routes — register, login, token refresh
+- [x] Write integration tests for swipe + match creation flow
+- [x] Write integration tests for photo upload to Supabase Storage
+- [x] Write Pytest unit tests for `preference_service.py` — test vector update math with numpy assertions
+- [x] Write Pytest unit tests for `recommendation_service.py` — mock supabase-py and assert ranked order
+- [x] Write Pytest integration tests for `/embed`, `/recommend`, and `/chat` using `httpx.AsyncClient` against the test Supabase project
 
 ---
 

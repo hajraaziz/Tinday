@@ -39,7 +39,7 @@ export const register = async ({ email, password, name }) => {
     )
     .catch((err) => console.error("FastAPI embed call failed:", err.message));
 
-  return { message: "Account created successfully." };
+  return { message: "Account created successfully.", user };
 };
 
 export const login = async ({ email, password }) => {
