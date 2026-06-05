@@ -1,0 +1,1765 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tinday API",
+    "version": "1.0.0",
+    "description": "Tinday is a professional networking application that uses a swipe-based interface to connect professionals. This API provides user authentication, profile management, swipe-based matching, real-time messaging, AI-powered recommendations, and an AI chat assistant with RAG (Retrieval-Augmented Generation).\n\n## Authentication\nAll authenticated endpoints require a Supabase JWT passed as a Bearer token in the Authorization header. Obtain a token via the `/api/auth/login` or `/api/auth/register` endpoints. Tokens expire and can be refreshed via `/api/auth/refresh`.\n\n## Rate Limiting\n- **Global**: 100 requests per minute per IP\n- **Auth endpoints** (`/api/auth/*`): 10 requests per minute per IP\n\n## Real-time Features\n- **Messages**: Subscribe to Supabase Realtime on the `messages` table for new message delivery\n- **Presence & Typing**: Connect via Socket.io with JWT auth for typing indicators and online presence\n\n## AI Features\n- Vector-based profile embeddings (768-dimensional Gemini embeddings)\n- Dynamic recommendations using cosine similarity and preference learning\n- AI chat assistant with RAG context from relevant profiles\n\n## Common Error Responses\n- `400` - Bad Request (invalid input, business rule violation)\n- `401` - Unauthorized (missing/invalid/expired JWT)\n- `403` - Forbidden (not a member of the requested match)\n- `404` - Not Found (resource does not exist)\n- `409` - Conflict (duplicate swipe, duplicate email)\n- `422` - Validation Error (Zod schema validation failure with field-level details)\n- `429` - Too Many Requests (rate limit exceeded)\n- `500` - Internal Server Error\n- `502` - Bad Gateway (FastAPI AI service unavailable)",
+    "contact": {
+      "name": "Tinday Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "User registration, login, token refresh, logout, and current user retrieval. Rate-limited at 10 req/min."
+    },
+    {
+      "name": "Profiles",
+      "description": "User profile management: view, update, search profiles, and upload avatars/project media."
+    },
+    {
+      "name": "Swipes",
+      "description": "Swipe actions (RIGHT/LIKE or LEFT/PASS) on other profiles. Mutual RIGHT swipes create a match."
+    },
+    {
+      "name": "Matches",
+      "description": "List matches where mutual RIGHT swipes occurred between two users."
+    },
+    {
+      "name": "Messaging",
+      "description": "Inbox listing, sending messages within a match, and retrieving message history with pagination."
+    },
+    {
+      "name": "Explore",
+      "description": "AI-powered profile discovery feed that excludes already-swiped users and ranks by preference similarity."
+    },
+    {
+      "name": "AI",
+      "description": "AI-powered features: recommendations, conversational chat with RAG, and profile analysis."
+    },
+    {
+      "name": "Health",
+      "description": "Service health check endpoint."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Supabase-issued JWT access token. Obtained from /api/auth/login or /api/auth/register. Include as: Authorization: Bearer <token>"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "message": {
+            "type": "string",
+            "description": "Additional error context"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "description": "Field-level validation errors (422 only)"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "description": "Supabase Auth user object returned on registration/login",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique user identifier (UUID v4)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "description": "Supabase session containing JWT and refresh token",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT access token for Bearer authentication"
+          },
+          "token_type": {
+            "type": "string",
+            "enum": ["bearer"]
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Token lifetime in seconds"
+          },
+          "expires_at": {
+            "type": "integer",
+            "description": "Unix timestamp when the token expires"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Long-lived refresh token for obtaining new access tokens"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "description": "Response for login and token refresh",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "description": "Complete user profile. The embedding vector is internal and never returned to clients.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Profile ID (same as auth user ID)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "minLength": 1
+          },
+          "avatar_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Public URL of the user's avatar image in Supabase Storage"
+          },
+          "about": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free-text bio/about section"
+          },
+          "experience_years": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Total years of professional experience"
+          },
+          "skills": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of professional skills (e.g., ['JavaScript', 'React', 'Python'])"
+          },
+          "roles": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of professional roles/titles (e.g., ['Software Engineer', 'Tech Lead'])"
+          },
+          "projects": {
+            "type": "array",
+            "description": "JSON array of project objects. Schema is flexible - each project may contain title, description, url, media, etc.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Arbitrary project object"
+            }
+          },
+          "preferences": {
+            "type": "object",
+            "description": "JSON object for user preferences. Schema is flexible.",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PublicProfile": {
+        "type": "object",
+        "description": "Public-facing profile (excludes internal fields like preferences and embeddings)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatar_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "about": {
+            "type": "string",
+            "nullable": true
+          },
+          "experience_years": {
+            "type": "integer"
+          },
+          "skills": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "roles": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["email", "password", "name"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Valid email address"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "description": "Password with minimum 8 characters"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name (non-empty)"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Registered email address"
+          },
+          "password": {
+            "type": "string",
+            "description": "Account password"
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Refresh token obtained from login or previous refresh"
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "description": "All fields are optional. Only provided fields will be updated. Updating triggers a re-embedding of the profile via the AI service.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name"
+          },
+          "about": {
+            "type": "string",
+            "description": "Bio/about text"
+          },
+          "experience_years": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total years of professional experience"
+          },
+          "skills": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of professional skills"
+          },
+          "roles": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of professional roles"
+          },
+          "projects": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true },
+            "description": "Array of project objects"
+          },
+          "preferences": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "User preference settings as a free-form JSON object"
+          }
+        }
+      },
+      "SwipeRequest": {
+        "type": "object",
+        "required": ["receiver_id", "direction"],
+        "properties": {
+          "receiver_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the profile being swiped on"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["RIGHT", "LEFT"],
+            "description": "RIGHT = like/interest, LEFT = pass/skip"
+          }
+        }
+      },
+      "SwipeResponse": {
+        "type": "object",
+        "properties": {
+          "swipe": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "giver_id": { "type": "string", "format": "uuid" },
+              "receiver_id": { "type": "string", "format": "uuid" },
+              "direction": { "type": "string", "enum": ["RIGHT", "LEFT"] },
+              "created_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "match": {
+            "type": "object",
+            "nullable": true,
+            "description": "The created match if this swipe resulted in a mutual RIGHT swipe. null if no match was created.",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "user_a_id": { "type": "string", "format": "uuid" },
+              "user_b_id": { "type": "string", "format": "uuid" },
+              "created_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "MatchWithUser": {
+        "type": "object",
+        "description": "A match including the other user's profile",
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The match record ID"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the match was created"
+          },
+          "user": {
+            "$ref": "#/components/schemas/PublicProfile"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sender_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string",
+            "description": "Message text content"
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Timestamp when the message was read by the recipient. null if unread."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Message content (cannot be empty)"
+          }
+        }
+      },
+      "InboxEntry": {
+        "type": "object",
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "other_user": {
+            "$ref": "#/components/schemas/PublicProfile"
+          },
+          "latest_message": {
+            "type": "object",
+            "nullable": true,
+            "description": "Most recent message in this conversation, or null if no messages yet",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "sender_id": { "type": "string", "format": "uuid" },
+              "content": { "type": "string" },
+              "read_at": { "type": "string", "format": "date-time", "nullable": true },
+              "created_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "unread_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of unread messages from the other user"
+          },
+          "last_activity": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the latest message or match creation. Used for sorting."
+          }
+        }
+      },
+      "ChatRequest": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The user's chat message to the AI assistant"
+          },
+          "conversation_history": {
+            "type": "array",
+            "default": [],
+            "description": "Previous conversation turns for context. Each turn has a role and content.",
+            "items": {
+              "type": "object",
+              "required": ["role", "content"],
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": ["user", "model", "system"],
+                  "description": "Who sent the message: user (you), model (AI), or system (instructions)"
+                },
+                "content": {
+                  "type": "string",
+                  "description": "Message content"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ShareProfileRequest": {
+        "type": "object",
+        "required": ["profile_id"],
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the profile to analyze"
+          }
+        }
+      },
+      "ProfileAnalysis": {
+        "type": "object",
+        "properties": {
+          "analysis": {
+            "type": "string",
+            "description": "AI-generated analysis of why this profile might be a good match"
+          }
+        }
+      },
+      "PaginatedProfiles": {
+        "type": "object",
+        "properties": {
+          "profiles": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Profile" }
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of profiles matching the search criteria"
+          },
+          "page": {
+            "type": "integer",
+            "description": "Current page number (1-based)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of results per page"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request - Invalid input or business rule violation",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "You cannot swipe on yourself" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized - Missing, invalid, or expired JWT token",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Missing or invalid authorization header" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden - Authenticated user does not have access to this resource",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Access denied: Not a member of this match" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not Found - The requested resource does not exist",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Not Found", "message": "The requested resource was not found." }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict - Duplicate resource or constraint violation",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Conflict", "message": "A record with this information already exists." }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Unprocessable Entity - Request validation failed",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "error": "Validation error",
+              "details": [
+                { "field": "email", "message": "Invalid email" },
+                { "field": "password", "message": "String must contain at least 8 character(s)" }
+              ]
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Too Many Requests - Rate limit exceeded",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Too many requests, please try again later." }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Internal Server Error" }
+          }
+        }
+      },
+      "BadGateway": {
+        "description": "Bad Gateway - AI service is unavailable",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Upstream service error", "message": "AI service error." }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Service health check",
+        "description": "Returns the current status of the Express server. Does not require authentication. Useful for load balancers and monitoring.",
+        "operationId": "healthCheck",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["ok"] },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "service": { "type": "string", "enum": ["express"] }
+                  }
+                },
+                "example": {
+                  "status": "ok",
+                  "timestamp": "2026-06-05T12:00:00.000Z",
+                  "service": "express"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user account",
+        "description": "Creates a new user account and profile. The user is created in Supabase Auth with email confirmation automatically set (email_confirm: true). A corresponding row is inserted into the profiles table. A fire-and-forget call is made to the FastAPI embed service to generate the initial vector embedding from the user's name.\n\n**Rate limited**: 10 requests per minute per IP.",
+        "operationId": "register",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRequest" },
+              "examples": {
+                "basic": {
+                  "summary": "Standard registration",
+                  "value": {
+                    "email": "jane@example.com",
+                    "password": "securePass123",
+                    "name": "Jane Doe"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created successfully. Returns the Supabase user object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                },
+                "example": {
+                  "message": "Account created successfully.",
+                  "user": {
+                    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "email": "jane@example.com",
+                    "created_at": "2026-06-05T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in with email and password",
+        "description": "Authenticates a user with email and password. Returns a Supabase session containing an access_token (JWT), refresh_token, and user object. The access_token should be passed as a Bearer token in the Authorization header for all authenticated requests. Tokens expire after the duration specified in `expires_in`.\n\n**Authentication flow**: The returned `access_token` is a Supabase JWT. Pass it as `Authorization: Bearer <access_token>`. When expired, use the `refresh_token` with `/api/auth/refresh` to obtain a new session.\n\n**Rate limited**: 10 requests per minute per IP.",
+        "operationId": "login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "examples": {
+                "basic": {
+                  "summary": "Standard login",
+                  "value": {
+                    "email": "jane@example.com",
+                    "password": "securePass123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful. Returns session with tokens.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" },
+                "example": {
+                  "session": {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "token_type": "bearer",
+                    "expires_in": 3600,
+                    "expires_at": 1717600000,
+                    "refresh_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "user": {
+                      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "email": "jane@example.com",
+                      "created_at": "2026-06-05T12:00:00.000Z"
+                    }
+                  },
+                  "user": {
+                    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "email": "jane@example.com",
+                    "created_at": "2026-06-05T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh an expired session",
+        "description": "Exchanges a refresh token for a new session with a fresh access_token and refresh_token. Use this when the access_token has expired instead of requiring the user to log in again.\n\n**Rate limited**: 10 requests per minute per IP.",
+        "operationId": "refreshSession",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" },
+              "examples": {
+                "basic": {
+                  "summary": "Token refresh",
+                  "value": {
+                    "refresh_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" },
+                "example": {
+                  "session": {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "token_type": "bearer",
+                    "expires_in": 3600,
+                    "expires_at": 1717603600,
+                    "refresh_token": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                    "user": {
+                      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "email": "jane@example.com",
+                      "created_at": "2026-06-05T12:00:00.000Z"
+                    }
+                  },
+                  "user": {
+                    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "email": "jane@example.com",
+                    "created_at": "2026-06-05T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": {
+                  "error": "Unauthorized",
+                  "message": "Session expired. Please log in again."
+                }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log out and invalidate the current session",
+        "description": "Signs out the current user by invalidating their JWT on the Supabase server side. Requires a valid Bearer token. After logout, the token cannot be used again.",
+        "operationId": "logout",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                },
+                "example": {
+                  "message": "Logged out successfully."
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get the currently authenticated user's profile",
+        "description": "Returns the full profile (from the profiles table) of the currently authenticated user. This is equivalent to `GET /api/profiles/me` but lives under the auth namespace. Requires a valid Bearer token.\n\n**Not rate limited** beyond the global 100 req/min limit.",
+        "operationId": "getCurrentUser",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current user's profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" },
+                "example": {
+                  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "name": "Jane Doe",
+                  "avatar_url": null,
+                  "about": "Full-stack developer passionate about AI",
+                  "experience_years": 5,
+                  "skills": ["JavaScript", "React", "Python", "Node.js"],
+                  "roles": ["Software Engineer", "Tech Lead"],
+                  "projects": [
+                    { "title": "OpenAI Chat App", "description": "A chat app using GPT", "url": "https://github.com/jane/chat" }
+                  ],
+                  "preferences": { "remote_only": true, "industries": ["Tech", "AI"] },
+                  "created_at": "2026-06-05T12:00:00.000Z",
+                  "updated_at": "2026-06-05T12:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/profiles/me": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Get own profile",
+        "description": "Returns the full profile of the currently authenticated user, including internal fields like preferences.",
+        "operationId": "getOwnProfile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Own profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "put": {
+        "tags": ["Profiles"],
+        "summary": "Update own profile",
+        "description": "Partially updates the authenticated user's profile. All fields are optional - only provided fields will be updated. After a successful update, a fire-and-forget call is made to the FastAPI embed service to regenerate the profile's vector embedding from the concatenated about, skills, roles, and preferences text. This keeps the AI recommendations up to date.",
+        "operationId": "updateOwnProfile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProfileRequest" },
+              "examples": {
+                "updateAboutAndSkills": {
+                  "summary": "Update about and skills",
+                  "value": {
+                    "about": "Senior full-stack developer with 8 years of experience",
+                    "skills": ["TypeScript", "React", "Node.js", "AWS", "Docker"],
+                    "experience_years": 8
+                  }
+                },
+                "updateRoles": {
+                  "summary": "Update roles only",
+                  "value": {
+                    "roles": ["Senior Software Engineer", "Engineering Manager"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" },
+                "example": {
+                  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "name": "Jane Doe",
+                  "avatar_url": "https://example.com/avatars/user123/avatar.jpg",
+                  "about": "Senior full-stack developer with 8 years of experience",
+                  "experience_years": 8,
+                  "skills": ["TypeScript", "React", "Node.js", "AWS", "Docker"],
+                  "roles": ["Senior Software Engineer", "Engineering Manager"],
+                  "projects": [],
+                  "preferences": {},
+                  "created_at": "2026-06-05T12:00:00.000Z",
+                  "updated_at": "2026-06-05T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/profiles/me/photo": {
+      "post": {
+        "tags": ["Profiles"],
+        "summary": "Upload avatar photo",
+        "description": "Uploads a profile avatar image. The request body must be raw binary image data with the appropriate Content-Type header (e.g., `image/jpeg`, `image/png`). The image is stored in the `avatars` Supabase Storage bucket and the profile's `avatar_url` is updated with the public URL. Maximum file size: 5 MB.\n\n**Content-Type**: Must be an image MIME type (`image/*`).",
+        "operationId": "uploadAvatar",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Raw image binary data (JPEG, PNG, WebP, etc.). Max 5 MB."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Avatar uploaded and profile updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" },
+                "example": {
+                  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "name": "Jane Doe",
+                  "avatar_url": "https://supabase.co/storage/v1/object/public/avatars/a1b2c3d4-e5f6-7890-abcd-ef1234567890/avatar.jpeg",
+                  "about": null,
+                  "experience_years": 0,
+                  "skills": [],
+                  "roles": [],
+                  "projects": [],
+                  "preferences": {},
+                  "created_at": "2026-06-05T12:00:00.000Z",
+                  "updated_at": "2026-06-05T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/profiles/me/projects/media": {
+      "post": {
+        "tags": ["Profiles"],
+        "summary": "Upload project media",
+        "description": "Uploads an image or video file for a project. The request body must be raw binary data with the appropriate Content-Type header. The file is stored in the `projects` Supabase Storage bucket and a public URL is returned. Maximum file size: 10 MB.\n\n**Content-Type**: Must be an image or video MIME type (`image/*` or `video/*`).",
+        "operationId": "uploadProjectMedia",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Raw image binary data. Max 10 MB."
+              }
+            },
+            "video/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "Raw video binary data. Max 10 MB."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Media uploaded successfully. Returns the public URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": { "type": "string", "format": "uri" }
+                  }
+                },
+                "example": {
+                  "url": "https://supabase.co/storage/v1/object/public/projects/a1b2c3d4-e5f6-7890-abcd-ef1234567890/1717600000000.mp4"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/profiles/search": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Search profiles",
+        "description": "Searches profiles by skills (contains match) and experience range. Supports pagination. This is a direct database search (not AI-powered). For AI-powered recommendations, use `/api/explore` or `/api/ai/recommend`.\n\n**Query parameters**:\n- `skills`: A skill string or array of skill strings. Profiles are matched if they contain ALL specified skills (Supabase `contains` operator).\n- `min_experience`: Minimum years of experience (inclusive).\n- `max_experience`: Maximum years of experience (inclusive).\n- `page`: Page number (1-based, default 1).\n- `limit`: Results per page (default 10).",
+        "operationId": "searchProfiles",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "skills",
+            "in": "query",
+            "required": false,
+            "description": "Filter profiles that have all specified skills. Can be passed multiple times or as comma-separated values.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "JavaScript"
+          },
+          {
+            "name": "min_experience",
+            "in": "query",
+            "required": false,
+            "description": "Minimum years of experience (inclusive)",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "example": 3
+          },
+          {
+            "name": "max_experience",
+            "in": "query",
+            "required": false,
+            "description": "Maximum years of experience (inclusive)",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "example": 10
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number (1-based)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "example": 1
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of results per page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 10,
+              "maximum": 100
+            },
+            "example": 10
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated search results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedProfiles" },
+                "example": {
+                  "profiles": [
+                    {
+                      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                      "name": "John Smith",
+                      "avatar_url": "https://example.com/avatar.jpg",
+                      "about": "Backend developer",
+                      "experience_years": 5,
+                      "skills": ["JavaScript", "Node.js", "PostgreSQL"],
+                      "roles": ["Backend Developer"],
+                      "projects": [],
+                      "preferences": {},
+                      "created_at": "2026-06-01T00:00:00.000Z",
+                      "updated_at": "2026-06-01T00:00:00.000Z"
+                    }
+                  ],
+                  "total": 42,
+                  "page": 1,
+                  "limit": 10
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/profiles/{userId}": {
+      "get": {
+        "tags": ["Profiles"],
+        "summary": "Get a specific user's public profile",
+        "description": "Returns the public profile of a user by their UUID. Private fields (preferences, embeddings) are excluded from the response.",
+        "operationId": "getProfileById",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "UUID of the user profile to fetch",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User's public profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublicProfile" },
+                "example": {
+                  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                  "name": "John Smith",
+                  "avatar_url": "https://example.com/avatar.jpg",
+                  "about": "Backend developer specializing in Node.js",
+                  "experience_years": 5,
+                  "skills": ["JavaScript", "Node.js", "PostgreSQL"],
+                  "roles": ["Backend Developer"],
+                  "projects": [
+                    { "title": "E-commerce API", "description": "RESTful API for e-commerce", "url": "https://github.com/john/ecommerce" }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/swipes": {
+      "post": {
+        "tags": ["Swipes"],
+        "summary": "Swipe on a profile (like or pass)",
+        "description": "Records a swipe action (RIGHT = like, LEFT = pass) on another user's profile. Business rules:\n- You cannot swipe on yourself (returns 400).\n- You cannot swipe the same user twice (returns 409).\n- A RIGHT swipe checks for a mutual RIGHT swipe from the other user. If found, a match is created and returned in the response.\n- After recording, a fire-and-forget call updates the user's AI preference vector via the FastAPI service.\n\n**Match creation**: Matches are created with ordered user IDs (`user_a_id < user_b_id`) to ensure consistency. The match object is returned alongside the swipe when a mutual match occurs.",
+        "operationId": "createSwipe",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SwipeRequest" },
+              "examples": {
+                "rightSwipe": {
+                  "summary": "Swipe RIGHT (like)",
+                  "value": {
+                    "receiver_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                    "direction": "RIGHT"
+                  }
+                },
+                "leftSwipe": {
+                  "summary": "Swipe LEFT (pass)",
+                  "value": {
+                    "receiver_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                    "direction": "LEFT"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Swipe recorded. If a mutual match was created, the `match` field will contain the match object.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SwipeResponse" },
+                "examples": {
+                  "noMatch": {
+                    "summary": "Swipe recorded, no mutual match",
+                    "value": {
+                      "swipe": {
+                        "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                        "giver_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "receiver_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                        "direction": "RIGHT",
+                        "created_at": "2026-06-05T13:00:00.000Z"
+                      },
+                      "match": null
+                    }
+                  },
+                  "mutualMatch": {
+                    "summary": "Swipe recorded with mutual match",
+                    "value": {
+                      "swipe": {
+                        "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                        "giver_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "receiver_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                        "direction": "RIGHT",
+                        "created_at": "2026-06-05T13:00:00.000Z"
+                      },
+                      "match": {
+                        "id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                        "user_a_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "user_b_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                        "created_at": "2026-06-05T13:00:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/matches": {
+      "get": {
+        "tags": ["Matches"],
+        "summary": "List all matches for the current user",
+        "description": "Returns all matches where the authenticated user is either `user_a` or `user_b`. Results are sorted by creation date descending (newest first). Each match includes the other user's public profile. Matches with deleted/null profiles are filtered out.",
+        "operationId": "listMatches",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of matches with the other user's profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/MatchWithUser" }
+                },
+                "example": [
+                  {
+                    "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                    "created_at": "2026-06-05T13:00:00.000Z",
+                    "user": {
+                      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                      "name": "John Smith",
+                      "avatar_url": "https://example.com/avatar.jpg",
+                      "about": "Backend developer",
+                      "experience_years": 5,
+                      "skills": ["JavaScript", "Node.js", "PostgreSQL"],
+                      "roles": ["Backend Developer"],
+                      "projects": []
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/explore": {
+      "get": {
+        "tags": ["Explore"],
+        "summary": "Get AI-powered profile discovery feed",
+        "description": "Returns a ranked list of profiles for the current user to swipe on. The feed is generated by the AI recommendation engine which considers:\n1. The user's learned preference vector (updated with each swipe)\n2. Vector similarity between the user's preference and candidate profiles\n3. Optional skill and experience filters\n\nAlready-swiped profiles are automatically excluded. The response preserves the AI-ranked order.\n\n**Query parameters**:\n- `skills`: Filter by skills (optional).\n- `min_experience`: Minimum years of experience (optional).\n- `max_experience`: Maximum years of experience (optional).\n- `limit`: Max results to return (default 20).\n\n**Difference from `/api/ai/recommend`**: Both use the same AI backend, but `/api/explore` is the primary swipe feed endpoint while `/api/ai/recommend` is a lower-level proxy.",
+        "operationId": "getExploreFeed",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "skills",
+            "in": "query",
+            "required": false,
+            "description": "Filter profiles by skills. Can be passed multiple times.",
+            "schema": { "type": "string" },
+            "example": "Python"
+          },
+          {
+            "name": "min_experience",
+            "in": "query",
+            "required": false,
+            "description": "Minimum years of experience",
+            "schema": { "type": "integer", "minimum": 0 },
+            "example": 2
+          },
+          {
+            "name": "max_experience",
+            "in": "query",
+            "required": false,
+            "description": "Maximum years of experience",
+            "schema": { "type": "integer", "minimum": 0 },
+            "example": 15
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of profiles to return",
+            "schema": { "type": "integer", "minimum": 1, "default": 20, "maximum": 100 },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI-ranked profile feed (already-swiped users excluded)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PublicProfile" }
+                },
+                "example": [
+                  {
+                    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                    "name": "John Smith",
+                    "avatar_url": "https://example.com/avatar.jpg",
+                    "about": "Backend developer specializing in distributed systems",
+                    "experience_years": 7,
+                    "skills": ["Python", "Go", "Kubernetes", "AWS"],
+                    "roles": ["Senior Backend Engineer"],
+                    "projects": [
+                      { "title": "Microservices Platform", "description": "Built a microservices platform handling 10M req/day" }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadGateway" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/messaging/inbox": {
+      "get": {
+        "tags": ["Messaging"],
+        "summary": "Get message inbox",
+        "description": "Returns all match conversations for the current user, sorted by most recent activity. Each entry includes:\n- The other user's profile\n- The latest message (or null if no messages exist yet)\n- Count of unread messages from the other user\n- Timestamp of last activity\n\nResults are sorted by `last_activity` descending (most recent first).",
+        "operationId": "getInbox",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Inbox with conversations sorted by most recent activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/InboxEntry" }
+                },
+                "example": [
+                  {
+                    "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                    "other_user": {
+                      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                      "name": "John Smith",
+                      "avatar_url": "https://example.com/avatar.jpg",
+                      "about": "Backend developer",
+                      "experience_years": 5,
+                      "skills": ["JavaScript", "Node.js"],
+                      "roles": ["Backend Developer"],
+                      "projects": []
+                    },
+                    "latest_message": {
+                      "id": "e5f6a7b8-c9d0-1234-efab-123456789012",
+                      "sender_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                      "content": "Hey! Would love to connect about your AI projects.",
+                      "read_at": null,
+                      "created_at": "2026-06-05T13:30:00.000Z"
+                    },
+                    "unread_count": 2,
+                    "last_activity": "2026-06-05T13:30:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/messaging/matches/{matchId}/messages": {
+      "get": {
+        "tags": ["Messaging"],
+        "summary": "Get messages for a match",
+        "description": "Returns paginated messages for a specific match, sorted by creation time ascending (oldest first). The authenticated user must be a member of the match (403 if not, 404 if match doesn't exist).\n\n**Auto-read**: Messages sent by the other user that are unread will be marked as read (fire-and-forget update).\n\n**Pagination**: Use `from` (inclusive) and `to` (inclusive) for cursor-based pagination. Default range is 0-49.",
+        "operationId": "getMessages",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "description": "UUID of the match",
+            "schema": { "type": "string", "format": "uuid" },
+            "example": "d4e5f6a7-b8c9-0123-defa-123456789012"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Starting index for pagination (inclusive, 0-based)",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 },
+            "example": 0
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Ending index for pagination (inclusive, 0-based)",
+            "schema": { "type": "integer", "minimum": 0, "default": 49 },
+            "example": 49
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages for the match",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Message" }
+                },
+                "example": [
+                  {
+                    "id": "e5f6a7b8-c9d0-1234-efab-123456789012",
+                    "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                    "sender_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                    "content": "Hi John, I saw we matched!",
+                    "read_at": "2026-06-05T13:31:00.000Z",
+                    "created_at": "2026-06-05T13:00:00.000Z"
+                  },
+                  {
+                    "id": "f6a7b8c9-d0e1-2345-fabc-123456789012",
+                    "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                    "sender_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+                    "content": "Hey! Would love to connect about your AI projects.",
+                    "read_at": null,
+                    "created_at": "2026-06-05T13:30:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "tags": ["Messaging"],
+        "summary": "Send a message in a match",
+        "description": "Sends a text message in a specific match conversation. The authenticated user must be a member of the match. The message is broadcast to the match room via Supabase Realtime so the recipient receives it instantly if subscribed.\n\n**Real-time delivery**: The recipient should subscribe to the `messages` table via Supabase Realtime for the specific `match_id` to receive messages in real time. The HTTP response returns the created message object.",
+        "operationId": "sendMessage",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "description": "UUID of the match to send a message to",
+            "schema": { "type": "string", "format": "uuid" },
+            "example": "d4e5f6a7-b8c9-0123-defa-123456789012"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendMessageRequest" },
+              "examples": {
+                "basic": {
+                  "summary": "Simple message",
+                  "value": {
+                    "content": "Hey! Would love to connect about your AI projects."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Message" },
+                "example": {
+                  "id": "f6a7b8c9-d0e1-2345-fabc-123456789012",
+                  "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                  "sender_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "content": "Hey! Would love to connect about your AI projects.",
+                  "read_at": null,
+                  "created_at": "2026-06-05T13:30:00.000Z"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/ai/recommend": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "Get AI-powered recommendations",
+        "description": "Returns AI-ranked profile recommendations using vector similarity. This is a lower-level proxy to the FastAI recommendation engine. Already-swiped users are automatically excluded. Results include full profiles sorted by relevance.\n\n**Query parameters**:\n- `skills`: Optional skill filter.\n- `min_experience`: Minimum years of experience.\n- `max_experience`: Maximum years of experience.\n- `limit`: Max results (default 20).",
+        "operationId": "aiRecommend",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "skills",
+            "in": "query",
+            "required": false,
+            "description": "Filter by skills",
+            "schema": { "type": "string" },
+            "example": "Python"
+          },
+          {
+            "name": "min_experience",
+            "in": "query",
+            "required": false,
+            "description": "Minimum years of experience",
+            "schema": { "type": "integer", "minimum": 0 },
+            "example": 2
+          },
+          {
+            "name": "max_experience",
+            "in": "query",
+            "required": false,
+            "description": "Maximum years of experience",
+            "schema": { "type": "integer", "minimum": 0 },
+            "example": 15
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum results",
+            "schema": { "type": "integer", "minimum": 1, "default": 20 },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI-ranked profiles (already-swiped excluded)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PublicProfile" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "502": { "$ref": "#/components/responses/BadGateway" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/ai/chat": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Chat with AI assistant (SSE streaming)",
+        "description": "Initiates a conversation with the AI assistant. The AI uses RAG (Retrieval-Augmented Generation) to find semantically similar profiles and provide networking advice based on real user profiles in the system.\n\n**Response format**: Server-Sent Events (SSE) stream with Content-Type: text/event-stream. Each event contains a chunk of the AI's response. Accumulate all chunks to form the complete response.\n\n**Conversation history**: Pass previous turns in conversation_history for multi-turn conversations. Each turn has a role (user, model, or system) and content.\n\n**SSE format**: data: <text_chunk> followed by double newline",
+        "operationId": "aiChat",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatRequest" },
+              "examples": {
+                "firstMessage": {
+                  "summary": "First message in conversation",
+                  "value": {
+                    "message": "Find me someone with experience in machine learning who might be a good mentor.",
+                    "conversation_history": []
+                  }
+                },
+                "followUp": {
+                  "summary": "Follow-up with conversation history",
+                  "value": {
+                    "message": "Tell me more about their background.",
+                    "conversation_history": [
+                      { "role": "user", "content": "Find me someone with experience in machine learning who might be a good mentor." },
+                      { "role": "model", "content": "I found several profiles with ML experience. Dr. Sarah Chen has 10 years of experience in NLP and has mentored 5 junior engineers..." }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE stream of AI response chunks",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Server-Sent Events stream. Each event is: data: <chunk>\\n\\n"
+                },
+                "example": "data: Based on your\n\ndata:  interests in machine learning,\n\ndata:  I found a few profiles\n\ndata:  that could be great matches...\n\n"
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "502": { "$ref": "#/components/responses/BadGateway" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/ai/share-profile": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Get AI analysis of a profile",
+        "description": "Returns an AI-generated analysis of why a specific profile might be a good match for the current user. The AI examines the profile's skills, experience, roles, and projects, then provides a personalized assessment.\n\n**How it works**: The service fetches the profile, constructs a prompt asking the AI to analyze it, streams the response through the FastAPI chat service, accumulates the full response, and returns it as a JSON object with the `analysis` field.",
+        "operationId": "analyzeProfile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ShareProfileRequest" },
+              "examples": {
+                "analyze": {
+                  "summary": "Analyze a profile",
+                  "value": {
+                    "profile_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI analysis of the profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProfileAnalysis" },
+                "example": {
+                  "analysis": "John Smith has 7 years of experience in backend development with skills in Python, Go, and Kubernetes. Given your interest in distributed systems, John's experience building microservices platforms handling 10M requests/day would be an excellent learning opportunity. His background in AWS complements your cloud computing interests."
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "502": { "$ref": "#/components/responses/BadGateway" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  }
+}
