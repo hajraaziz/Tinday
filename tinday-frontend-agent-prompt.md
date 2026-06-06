@@ -357,31 +357,31 @@ export interface AIConversation {
 
 ### `src/lib/supabase.ts`
 
-- [ ] Create and export a single Supabase client instance using `createClient` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] Export `setSupabaseSession(access_token: string, refresh_token: string)` — calls `supabase.auth.setSession({ access_token, refresh_token })`
+- [x] Create and export a single Supabase client instance using `createClient` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- [x] Export `setSupabaseSession(access_token: string, refresh_token: string)` — calls `supabase.auth.setSession({ access_token, refresh_token })`
 
 ### `src/lib/api.ts`
 
-- [ ] Create Axios instance with `baseURL: process.env.NEXT_PUBLIC_API_URL`
-- [ ] **Request interceptor:** reads `access_token` from Zustand auth store, attaches as `Authorization: Bearer <token>`
-- [ ] **Response interceptor:**
+- [x] Create Axios instance with `baseURL: process.env.NEXT_PUBLIC_API_URL`
+- [x] **Request interceptor:** reads `access_token` from Zustand auth store, attaches as `Authorization: Bearer <token>`
+- [x] **Response interceptor:**
   - On 401: reads `refresh_token` from store, calls `POST /api/auth/refresh` with body `{ refresh_token }`, reads new tokens from `response.data.session.access_token` and `response.data.session.refresh_token`, updates store, retries original request once
   - On retry failure: calls `authStore.logout()`, redirects to `/login`
-- [ ] Export typed wrappers: `api.get<T>`, `api.post<T>`, `api.put<T>`, `api.delete<T>` that unwrap `response.data`
-- [ ] Throw clear error on startup if `NEXT_PUBLIC_API_URL` is missing
+- [x] Export typed wrappers: `api.get<T>`, `api.post<T>`, `api.put<T>`, `api.delete<T>` that unwrap `response.data`
+- [x] Throw clear error on startup if `NEXT_PUBLIC_API_URL` is missing
 
 ### `src/lib/socket.ts`
 
-- [ ] Socket.io client singleton, `NEXT_PUBLIC_SOCKET_URL`, `autoConnect: false`
-- [ ] `auth` callback reads `access_token` from Zustand store
-- [ ] Export `connectSocket()` and `disconnectSocket()`
+- [x] Socket.io client singleton, `NEXT_PUBLIC_SOCKET_URL`, `autoConnect: false`
+- [x] `auth` callback reads `access_token` from Zustand store
+- [x] Export `connectSocket()` and `disconnectSocket()`
 
 ### `src/lib/utils.ts`
 
-- [ ] `cn(...inputs)` via `clsx` + `tailwind-merge`
-- [ ] `formatRelativeTime(date: string): string` — "2m ago", "1h ago", "Yesterday", "3 days"
-- [ ] `getInitials(name: string): string` — "SC" for "Sarah Chen"
-- [ ] `buildProfileText(profile: Profile): string` — `about + skills.join(', ') + roles.join(', ')`
+- [x] `cn(...inputs)` via `clsx` + `tailwind-merge`
+- [x] `formatRelativeTime(date: string): string` — "2m ago", "1h ago", "Yesterday", "3 days"
+- [x] `getInitials(name: string): string` — "SC" for "Sarah Chen"
+- [x] `buildProfileText(profile: Profile): string` — `about + skills.join(', ') + roles.join(', ')`
 
 ### `src/store/authStore.ts`
 
@@ -398,9 +398,9 @@ interface AuthState {
 }
 ```
 
-- [ ] `setAuth` extracts `session.access_token` and `session.refresh_token` from the payload — matches the `AuthResponse` shape from the API
-- [ ] Wrap with `persist` middleware, key `tinday-auth`, `localStorage`
-- [ ] `logout()` clears store, calls `supabase.auth.signOut()`, calls `disconnectSocket()`, redirects to `/login`
+- [x] `setAuth` extracts `session.access_token` and `session.refresh_token` from the payload — matches the `AuthResponse` shape from the API
+- [x] Wrap with `persist` middleware, key `tinday-auth`, `localStorage`
+- [x] `logout()` clears store, calls `supabase.auth.signOut()`, calls `disconnectSocket()`, redirects to `/login`
 
 ### `src/store/uiStore.ts`
 
@@ -416,12 +416,12 @@ interface UIState {
 }
 ```
 
-- [ ] Not persisted
+- [x] Not persisted
 
 ### `src/app/layout.tsx` (Root)
 
-- [ ] Wrap with `TanStackQueryProvider` (`staleTime: 1000 * 60 * 5`), `Toaster`, `NoiseOverlay`
-- [ ] Apply font variables to `<html>`
+- [x] Wrap with `TanStackQueryProvider` (`staleTime: 1000 * 60 * 5`), `Toaster`, `NoiseOverlay`
+- [x] Apply font variables to `<html>`
 
 ---
 
