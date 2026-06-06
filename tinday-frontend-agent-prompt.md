@@ -438,10 +438,10 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
 (if no skill added yet, read from https://raw.githubusercontent.com/superdesigndev/superdesign-skill/refs/heads/main/skills/superdesign/SKILL.md)
 ```
 
-- [ ] `src/app/page.tsx` — server component
-- [ ] Noise overlay, fixed, `z-index: 9999`
-- [ ] **Nav bar** — transparent → `rgba(21,21,21,0.85)` + `backdrop-filter: blur(20px)` on scroll. Wordmark, center links, "Get Started" pill (white bg, black text)
-- [ ] **Hero** — full viewport, `radial-gradient(ellipse at bottom, #1B1535 0%, #090A0F 100%)`:
+- [x] `src/app/page.tsx` — server component
+- [x] Noise overlay, fixed, `z-index: 9999`
+- [x] **Nav bar** — transparent → `rgba(21,21,21,0.85)` + `backdrop-filter: blur(20px)` on scroll. Wordmark, center links, "Get Started" pill (white bg, black text)
+- [x] **Hero** — full viewport, `radial-gradient(ellipse at bottom, #1B1535 0%, #090A0F 100%)`:
   - Three star layers as `div` elements with `box-shadow` star fields, Framer Motion vertical scroll animation
   - Bottom fade gradient
   - Eyebrow badge — purple border/bg pill, uppercase tracking
@@ -449,10 +449,10 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
   - Subtext, "Start Swiping" glass morphism CTA
   - Live clock `Asia/Karachi` timezone + `· Lahore, PK` — JetBrains Mono
   - Scroll indicator
-- [ ] **Feature cards section** — dot grid bg, two rotated cards. Card 1: purple bg `rotate(-6deg)`. Card 2: dark bg `rotate(6deg)`. Hover → `rotate(0deg)`. Scroll sway via `useScroll` + `useTransform`
-- [ ] **Social proof** — 5 logos (Notion, Figma, GitHub, Linear, Vercel), SVG, grayscale 40% → full colour on hover
-- [ ] **Footer** — giant faded wordmark `clamp(100px, 14vw, 180px)`, `rgba(132,120,212,0.07)`. Lucide social icons
-- [ ] Hero parallax via `useScroll` + `useTransform`. Scroll reveal via `whileInView` `viewport={{ once: true }}`
+- [x] **Feature cards section** — dot grid bg, two rotated cards. Card 1: purple bg `rotate(-6deg)`. Card 2: dark bg `rotate(6deg)`. Hover → `rotate(0deg)`. Scroll sway via `useScroll` + `useTransform`
+- [x] **Social proof** — 5 logos (Notion, Figma, GitHub, Linear, Vercel), SVG, grayscale 40% → full colour on hover
+- [x] **Footer** — giant faded wordmark `clamp(100px, 14vw, 180px)`, `rgba(132,120,212,0.07)`. Lucide social icons
+- [x] Hero parallax via `useScroll` + `useTransform`. Scroll reveal via `whileInView` `viewport={{ once: true }}`
 
 ---
 
