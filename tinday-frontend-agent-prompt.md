@@ -1,4 +1,4 @@
-# Tinday Frontend — AI Agent Implementation Prompt
+﻿# Tinday Frontend — AI Agent Implementation Prompt
 
 > **Purpose:** This document is a complete implementation guide for an AI coding agent (Claude Code, Cursor, Windsurf, etc.). Follow each phase in order. Complete all checklist items before moving to the next phase. Do not skip steps.
 
@@ -529,25 +529,25 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
 
 ### `src/app/(app)/layout.tsx`
 
-- [ ] Client component, reads auth store, route guard → `/login`
-- [ ] Renders `<TopNav />`, `<SideRail />` (desktop), `<main>` fixed `top: 60px left: 64px` (desktop) / `left: 0` (mobile), `<BottomNav />` (mobile)
+- [x] Client component, reads auth store, route guard `->` `/login`
+- [x] Renders `<TopNav />`, `<SideRail />` (desktop), `<main>` fixed `top: 60px left: 64px` (desktop) / `left: 0` (mobile), `<BottomNav />` (mobile)
 
 ### `src/components/layout/TopNav.tsx`
 
-- [ ] Fixed, `height: 60px`, `background: #151515`, `border-bottom: 1px solid rgba(132,120,212,0.08)`
-- [ ] Left: "Tinday." `margin-left: 72px` desktop. Center: search input `background: #221E30` hidden on mobile. Right: bell badge + avatar
-- [ ] Notification panel: `motion.div` slide down, `fixed top: 60px right: 40px width: 400px`, close on outside click. Notification rows matching fetched design
+- [x] Fixed, `height: 60px`, `background: #151515`, `border-bottom: 1px solid rgba(132,120,212,0.08)`
+- [x] Left: "Tinday." `margin-left: 72px` desktop. Center: search input `background: #221E30` hidden on mobile. Right: bell badge + avatar
+- [x] Notification panel: `motion.div` slide down, `fixed top: 60px right: 40px width: 400px`, close on outside click. Notification rows matching fetched design
 
 ### `src/components/layout/SideRail.tsx`
 
-- [ ] Fixed, `width: 64px`, `background: #110E1B`, `border-right: 1px solid rgba(132,120,212,0.08)`
-- [ ] 4 icon buttons, `width/height: 40px`, `border-radius: 12px`
-- [ ] Active: `background: rgba(132,120,212,0.12)`, `2px × 20px` left edge bar, accent icon
-- [ ] CSS hover tooltips, `usePathname()` for active route
+- [x] Fixed, `width: 64px`, `background: #110E1B`, `border-right: 1px solid rgba(132,120,212,0.08)`
+- [x] 4 icon buttons, `width/height: 40px`, `border-radius: 12px`
+- [x] Active: `background: rgba(132,120,212,0.12)`, `2px × 20px` left edge bar, accent icon
+- [x] CSS hover tooltips, `usePathname()` for active route
 
 ### `src/components/layout/BottomNav.tsx`
 
-- [ ] `md:hidden`, fixed bottom, `height: 60px`, 4 items, active: accent + top `2px` bar, `usePathname()`
+- [x] `md:hidden`, fixed bottom, `height: 60px`, 4 items, active: accent + top `2px` bar, `usePathname()`
 
 ---
 

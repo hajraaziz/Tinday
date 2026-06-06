@@ -88,7 +88,7 @@ When relevant, recommend specific profiles and explain clearly why they are a go
     async def generate():
         try:
             response = await client.aio.models.generate_content_stream(
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 contents=contents,
             )
             async for chunk in response:
