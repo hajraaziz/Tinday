@@ -471,13 +471,13 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
 
 ### Login — `src/app/(auth)/login/page.tsx`
 
-- [ ] Dark bg, two ambient purple glows, noise overlay
-- [ ] Card: `max-w-[440px]`, `background: #1C1829`, `border: 1px solid rgba(132,120,212,0.12)`, `border-radius: 16px`, `padding: 40px`
-- [ ] "Tinday." wordmark centered (Playfair Display)
-- [ ] Tab switcher: pill container `background: #221E30`, sliding `motion.div` with `layout` prop. "Sign Up" tab navigates to `/register`
-- [ ] Email input, password input with show/hide toggle (Lucide `Eye`/`EyeOff`), "Forgot password?" link, "Sign In" button `background: #8478D4`
-- [ ] Divider, three social buttons (Google/GitHub/Apple SVGs) — "Social auth coming soon" toast on click
-- [ ] **Form submission:**
+- [x] Dark bg, two ambient purple glows, noise overlay
+- [x] Card: `max-w-[440px]`, `background: #1C1829`, `border: 1px solid rgba(132,120,212,0.12)`, `border-radius: 16px`, `padding: 40px`
+- [x] "Tinday." wordmark centered (Playfair Display)
+- [x] Tab switcher: pill container `background: #221E30`, sliding `motion.div` with `layout` prop. "Sign Up" tab navigates to `/register`
+- [x] Email input, password input with show/hide toggle (Lucide `Eye`/`EyeOff`), "Forgot password?" link, "Sign In" button `background: #8478D4`
+- [x] Divider, three social buttons (Google/GitHub/Apple SVGs) — "Social auth coming soon" toast on click
+- [x] **Form submission:**
   - Zod: `{ email: z.string().email(), password: z.string().min(8) }`
   - `POST /api/auth/login` body: `{ email, password }`
   - Response shape: `{ session: { access_token, refresh_token, expires_in, expires_at, ... }, user }` — extract tokens from `response.session`
@@ -486,9 +486,9 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
 
 ### Register — `src/app/(auth)/register/page.tsx`
 
-- [ ] Same card layout
-- [ ] Full Name, Email, Password (with 4-segment strength meter: red → amber → green), Confirm Password
-- [ ] **Form submission:**
+- [x] Same card layout
+- [x] Full Name, Email, Password (with 4-segment strength meter: red → amber → green), Confirm Password
+- [x] **Form submission:**
   - Zod: `{ name: z.string().min(2), email: z.string().email(), password: z.string().min(8), confirmPassword: z.string() }` with `.refine()` for password match
   - `POST /api/auth/register` body: `{ email, password, name }`
   - Response: `{ message: string, user: User }` — status 201, **no tokens returned**
@@ -509,19 +509,19 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
 (if no skill added yet, read from https://raw.githubusercontent.com/superdesigndev/superdesign-skill/refs/heads/main/skills/superdesign/SKILL.md)
 ```
 
-- [ ] Route guard: if `!isAuthenticated` → `/login`. If `profile.skills.length > 0` → `/explore`
-- [ ] 4 progress dots — active expands to `width: 20px`, Framer Motion `layout`
-- [ ] Back button from step 2 onwards
-- [ ] Step transitions: `AnimatePresence` `mode="wait"`, forward `x: 40 → 0`, backward `x: -40 → 0`
-- [ ] **Step 1:** avatar upload (circular dashed border, camera icon, file preview on select), Full Name, Your Role
-- [ ] **Step 2:** textarea "About you", experience pills single-select
-- [ ] **Step 3:** skills input (Enter to add pill), selected skills with `×` remove, suggested skills, roles section same pattern
-- [ ] **Step 4:** preferred roles multi-select, skills looking for multi-select, experience level single-select
-- [ ] **On "Complete Profile":**
+- [x] Route guard: if `!isAuthenticated` → `/login`. If `profile.skills.length > 0` → `/explore`
+- [x] 4 progress dots — active expands to `width: 20px`, Framer Motion `layout`
+- [x] Back button from step 2 onwards
+- [x] Step transitions: `AnimatePresence` `mode="wait"`, forward `x: 40 → 0`, backward `x: -40 → 0`
+- [x] **Step 1:** avatar upload (circular dashed border, camera icon, file preview on select), Full Name, Your Role
+- [x] **Step 2:** textarea "About you", experience pills single-select
+- [x] **Step 3:** skills input (Enter to add pill), selected skills with `×` remove, suggested skills, roles section same pattern
+- [x] **Step 4:** preferred roles multi-select, skills looking for multi-select, experience level single-select
+- [x] **On "Complete Profile":**
   - `PUT /api/profiles/me` body: `{ name, about, experience_years, skills, roles, preferences }` — all optional fields, send what was collected
   - If avatar selected: `POST /api/profiles/me/photo` — send **raw binary** with `Content-Type: image/jpeg` (or appropriate mime type). Do NOT use FormData. Read the file as ArrayBuffer and send directly
   - On success: show celebration overlay
-- [ ] **Celebration overlay:** confetti (60 `motion.div`), profile card preview with collected data, "Start Exploring" → `/explore`
+- [x] **Celebration overlay:** confetti (60 `motion.div`), profile card preview with collected data, "Start Exploring" → `/explore`
 
 ---
 
