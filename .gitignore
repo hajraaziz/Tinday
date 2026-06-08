@@ -13,7 +13,7 @@ express-server/dist/
 express-server/build/
 
 # Python (FastAPI Service)
-fastapi-service/__pycache__/
+__pycache__/
 fastapi-service/*.py[cod]
 fastapi-service/*$py.class
 fastapi-service/.pytest_cache/
