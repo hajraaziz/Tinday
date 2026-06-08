@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { User, Profile, Session } from "@/types";
 
 interface AuthState {
@@ -9,8 +9,13 @@ interface AuthState {
   access_token: string | null;
   refresh_token: string | null;
   isAuthenticated: boolean;
+  // True once the persisted state has been rehydrated from localStorage.
+  // Guards must wait for this before redirecting, otherwise the first render
+  // (default state, isAuthenticated=false) kicks authenticated users to /login.
+  hasHydrated: boolean;
   setAuth: (payload: { user: User; session: Session }) => void;
   setProfile: (profile: Profile) => void;
+  setHasHydrated: (value: boolean) => void;
   logout: () => void;
 }
 
@@ -22,6 +27,7 @@ export const useAuthStore = create<AuthState>()(
       access_token: null,
       refresh_token: null,
       isAuthenticated: false,
+      hasHydrated: false,
 
       setAuth: ({ user, session }) =>
         set({
@@ -32,6 +38,8 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setProfile: (profile) => set({ profile }),
+
+      setHasHydrated: (value) => set({ hasHydrated: value }),
 
       logout: () => {
         set({
@@ -58,14 +66,17 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "tinday-auth",
-      storage: {
-        getItem: (key) => {
-          const item = localStorage.getItem(key);
-          return item ? JSON.parse(item) : null;
-        },
-        setItem: (key, value) =>
-          localStorage.setItem(key, JSON.stringify(value)),
-        removeItem: (key) => localStorage.removeItem(key),
+      storage: createJSONStorage(() => localStorage),
+      // hasHydrated is runtime-only — never persist it.
+      partialize: ({ user, profile, access_token, refresh_token, isAuthenticated }) => ({
+        user,
+        profile,
+        access_token,
+        refresh_token,
+        isAuthenticated,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
       },
     }
   )

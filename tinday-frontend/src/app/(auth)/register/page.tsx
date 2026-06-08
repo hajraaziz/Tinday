@@ -1,19 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { apiPost } from "@/lib/api";
-import { useAuthStore } from "@/store/authStore";
-import { setSupabaseSession } from "@/lib/supabase";
-import { connectSocket } from "@/lib/socket";
-import type { User, AuthResponse } from "@/types";
+import type { User } from "@/types";
+
+const RESEND_COOLDOWN = 45; // seconds
 
 const registerSchema = z
   .object({
@@ -48,12 +46,33 @@ function getPasswordStrength(password: string): {
 }
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const setAuth = useAuthStore((s) => s.setAuth);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Set once registration succeeds → switches the card to the "check inbox" view.
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  const handleResend = async () => {
+    if (!submittedEmail || resendCooldown > 0) return;
+    try {
+      await apiPost("/api/auth/resend-confirmation", { email: submittedEmail });
+      toast.success("Confirmation email sent", {
+        description: "Check your inbox (and spam folder).",
+      });
+      setResendCooldown(RESEND_COOLDOWN);
+    } catch {
+      toast.error("Couldn't resend right now. Please try again shortly.");
+      setResendCooldown(RESEND_COOLDOWN);
+    }
+  };
 
   const {
     register,
@@ -71,29 +90,16 @@ export default function RegisterPage() {
     setServerError(null);
     setFieldErrors({});
     try {
-      // Step 1: Register
+      // Register. Supabase sends a confirmation email — no session yet.
       await apiPost<{ message: string; user: User }>("/api/auth/register", {
         email: data.email,
         password: data.password,
         name: data.name,
       });
 
-      // Step 2: Auto-login
-      const loginResponse = await apiPost<AuthResponse>("/api/auth/login", {
-        email: data.email,
-        password: data.password,
-      });
-
-      setAuth({
-        user: loginResponse.user,
-        session: loginResponse.session,
-      });
-      await setSupabaseSession(
-        loginResponse.session.access_token,
-        loginResponse.session.refresh_token
-      );
-      connectSocket();
-      router.push("/onboarding");
+      // Switch to the "check your inbox" screen and start the resend cooldown.
+      setSubmittedEmail(data.email);
+      setResendCooldown(RESEND_COOLDOWN);
     } catch (err: unknown) {
       const error = err as {
         response?: {
@@ -146,6 +152,44 @@ export default function RegisterPage() {
             Tinday.
           </h1>
 
+          {submittedEmail ? (
+            <div className="text-center">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(132,120,212,0.12)]">
+                <MailCheck className="h-7 w-7 text-[#8478D4]" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Check your inbox
+              </h2>
+              <p className="text-sm text-[#9CA3AF] mb-1">
+                We sent a confirmation link to
+              </p>
+              <p className="text-sm font-medium text-white mb-6 break-all">
+                {submittedEmail}
+              </p>
+              <p className="text-xs text-[#4B5563] mb-6">
+                Click the link in the email to activate your account, then sign
+                in. The link may take a minute to arrive — check spam too.
+              </p>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0}
+                className="w-full py-2.5 rounded-lg font-medium text-white transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: "#8478D4" }}
+              >
+                {resendCooldown > 0
+                  ? `Resend email in ${resendCooldown}s`
+                  : "Resend confirmation email"}
+              </button>
+              <Link
+                href="/login"
+                className="mt-4 inline-block text-sm text-[#9CA3AF] hover:text-[#8478D4] transition-colors"
+              >
+                Back to sign in
+              </Link>
+            </div>
+          ) : (
+            <>
           {/* Tab switcher */}
           <div className="relative flex rounded-lg p-1 bg-[#221E30] mb-8">
             <motion.div
@@ -409,6 +453,8 @@ export default function RegisterPage() {
               Sign in
             </Link>
           </p>
+            </>
+          )}
         </div>
       </motion.div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -9,11 +9,11 @@ import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { apiPost } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
-import { setSupabaseSession } from "@/lib/supabase";
+import { setSupabaseSession, supabase } from "@/lib/supabase";
 import { connectSocket } from "@/lib/socket";
-import type { AuthResponse } from "@/types";
+import type { AuthResponse, Profile } from "@/types";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -25,19 +25,31 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setProfile = useAuthStore((s) => s.setProfile);
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
 
+  // Prefill email after coming back from email confirmation (?email=...).
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email");
+    if (email) setValue("email", email);
+  }, [setValue]);
+
   const onSubmit = async (data: LoginForm) => {
     setServerError(null);
+    setNeedsConfirmation(false);
     try {
       const response = await apiPost<AuthResponse>("/api/auth/login", {
         email: data.email,
@@ -49,13 +61,73 @@ export default function LoginPage() {
         response.session.refresh_token
       );
       connectSocket();
+
+      // Route incomplete profiles into onboarding, everyone else to explore.
+      try {
+        const profile = await apiGet<Profile>("/api/profiles/me");
+        setProfile(profile);
+        if (!profile.skills || profile.skills.length === 0) {
+          router.push("/onboarding");
+          return;
+        }
+      } catch {
+        // If the profile lookup fails, fall through to explore.
+      }
       router.push("/explore");
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      setServerError(
-        error?.response?.data?.error || "Something went wrong. Please try again."
-      );
+      const error = err as {
+        response?: { data?: { error?: string; message?: string } };
+      };
+      const message =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        "Something went wrong. Please try again.";
+      if (/confirm/i.test(message)) {
+        setNeedsConfirmation(true);
+        setServerError("Please confirm your email before signing in.");
+      } else {
+        setServerError(message);
+      }
     }
+  };
+
+  const handleResendConfirmation = async () => {
+    const email = getValues("email");
+    if (!email) {
+      toast.error("Enter your email first");
+      return;
+    }
+    setResending(true);
+    try {
+      await apiPost("/api/auth/resend-confirmation", { email });
+      toast.success("Confirmation email sent", {
+        description: "Check your inbox and spam folder.",
+      });
+    } catch {
+      toast.error("Couldn't resend right now. Please try again shortly.");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = getValues("email");
+    if (!email) {
+      toast.error("Enter your email above first", {
+        description: "We'll send the reset link there.",
+      });
+      return;
+    }
+    try {
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+    } catch {
+      // Swallow — show a generic message regardless to avoid email enumeration.
+    }
+    toast.success("Check your email", {
+      description: "If that address has an account, a reset link is on its way.",
+    });
   };
 
   return (
@@ -157,11 +229,7 @@ export default function LoginPage() {
             <div className="text-right">
               <button
                 type="button"
-                onClick={() =>
-                  toast("Password reset", {
-                    description: "Password reset coming soon.",
-                  })
-                }
+                onClick={handleForgotPassword}
                 className="text-sm text-[#9CA3AF] hover:text-[#8478D4] transition-colors"
               >
                 Forgot password?
@@ -188,6 +256,16 @@ export default function LoginPage() {
                   className="text-sm text-[#EF4444] text-center"
                 >
                   {serverError}
+                  {needsConfirmation && (
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={resending}
+                      className="mt-1 block w-full text-[#8478D4] hover:text-[#A098E0] transition-colors disabled:opacity-50"
+                    >
+                      {resending ? "Sending…" : "Resend confirmation email"}
+                    </button>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

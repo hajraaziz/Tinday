@@ -83,7 +83,7 @@ type StepData = {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { isAuthenticated, profile, user } = useAuthStore();
+  const { isAuthenticated, profile, user, hasHydrated } = useAuthStore();
 
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -109,8 +109,9 @@ export default function OnboardingPage() {
   const [roleInput, setRoleInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Route guard
+  // Route guard — wait for persisted auth to rehydrate first.
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!isAuthenticated) {
       router.replace("/login");
       return;
@@ -118,7 +119,7 @@ export default function OnboardingPage() {
     if (profile && profile.skills && profile.skills.length > 0) {
       router.replace("/explore");
     }
-  }, [isAuthenticated, profile, router]);
+  }, [hasHydrated, isAuthenticated, profile, router]);
 
   const nextStep = () => {
     if (step < 4) {

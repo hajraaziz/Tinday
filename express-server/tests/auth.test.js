@@ -28,6 +28,10 @@ describe("Auth Module", () => {
     expect(res.body.message).toMatch(/Account created/);
     expect(res.body.user).toBeDefined();
     userId = res.body.user.id;
+
+    // Registration now requires email confirmation (Supabase hosted flow).
+    // Confirm the email via the admin API so the login flow below can proceed.
+    await supabase.auth.admin.updateUserById(userId, { email_confirm: true });
   });
 
   it("should login the user", async () => {

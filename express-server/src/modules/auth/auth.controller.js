@@ -6,6 +6,12 @@ export const register = async (req, res) => {
   res.status(201).json(result);
 };
 
+export const resendConfirmation = async (req, res) => {
+  const { email } = req.body;
+  const result = await authService.resendConfirmation({ email });
+  res.status(200).json(result);
+};
+
 export const login = async (req, res) => {
   const { email, password } = req.body;
   const result = await authService.login({ email, password });

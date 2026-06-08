@@ -21,7 +21,16 @@ const refreshSchema = z.object({
   refresh_token: z.string().min(1),
 });
 
+const resendSchema = z.object({
+  email: z.string().email(),
+});
+
 router.post("/register", validate(registerSchema), authController.register);
+router.post(
+  "/resend-confirmation",
+  validate(resendSchema),
+  authController.resendConfirmation,
+);
 router.post("/login", validate(loginSchema), authController.login);
 router.post("/refresh", validate(refreshSchema), authController.refresh);
 

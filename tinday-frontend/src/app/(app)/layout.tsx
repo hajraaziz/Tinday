@@ -10,12 +10,23 @@ import { BottomNav } from "@/components/layout/BottomNav";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Wait for persisted auth to rehydrate before deciding to redirect,
+    // otherwise a hard refresh bounces logged-in users to /login.
+    if (hasHydrated && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router]);
+
+  if (!hasHydrated) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[#151515]">
+        <div className="w-8 h-8 rounded-full border-2 border-[rgba(132,120,212,0.2)] border-t-[#8478D4] animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return null;
 
