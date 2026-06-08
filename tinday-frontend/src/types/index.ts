@@ -49,6 +49,17 @@ export interface PublicProfile {
   projects: Project[];
 }
 
+// Body for PUT /api/profiles/me — all fields optional (partial update)
+export interface UpdateProfileRequest {
+  name?: string;
+  about?: string;
+  experience_years?: number;
+  skills?: string[];
+  roles?: string[];
+  projects?: Project[];
+  preferences?: Record<string, unknown>;
+}
+
 export interface Project {
   title?: string;
   description?: string;
