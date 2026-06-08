@@ -566,47 +566,47 @@ Project ID: fc6473ba-90e7-4dc3-bdcd-0bfa60f1dde6
 
 ### Data hooks
 
-- [ ] **`useExploreFeed`** — `GET /api/explore` with optional query params `skills`, `min_experience`, `max_experience`, `limit`. Returns `PublicProfile[]`. `staleTime: 0`
-- [ ] **`useRecordSwipe`** — mutation `POST /api/swipes` body `{ receiver_id: string, direction: 'RIGHT' | 'LEFT' }`. Response is `SwipeResponse` — check `response.match !== null` to determine if a match was created. On match: `uiStore.showMatchOverlay(response.match)`
+- [x] **`useExploreFeed`** — `GET /api/explore` with optional query params `skills`, `min_experience`, `max_experience`, `limit`. Returns `PublicProfile[]`. `staleTime: 0`
+- [x] **`useRecordSwipe`** — mutation `POST /api/swipes` body `{ receiver_id: string, direction: 'RIGHT' | 'LEFT' }`. Response is `SwipeResponse` — check `response.match !== null` to determine if a match was created. On match: `uiStore.showMatchOverlay(response.match)`
 
 ### `src/components/explore/FilterBar.tsx`
 
-- [ ] Scrollable pill row. Pills: "All", "Design", "Engineering", "Product", "1-3 yrs", "3-5 yrs", "5+ yrs", "Filter" (sliders icon). Single-select, active = accent border/bg. State lifted to page, passed as query params to `useExploreFeed`
+- [x] Scrollable pill row. Pills: "All", "Design", "Engineering", "Product", "1-3 yrs", "3-5 yrs", "5+ yrs", "Filter" (sliders icon). Single-select, active = accent border/bg. State lifted to page, passed as query params to `useExploreFeed`
 
 ### `src/components/explore/ProfileCard.tsx`
 
-- [ ] `motion.div`, `256px × 384px`, `border-radius: 24px`
-- [ ] Gradient background cycling by index, bottom `55%` gradient overlay
-- [ ] Content: experience badge top-right (blurred dark pill), share icon top-left, skill pills (max 3), location, role, name
-- [ ] `"CONNECTED"` (green left) and `"PASSED"` (red right) swipe badge overlays, `opacity: 0` default
+- [x] `motion.div`, `256px × 384px`, `border-radius: 24px`
+- [x] Gradient background cycling by index, bottom `55%` gradient overlay
+- [x] Content: experience badge top-right (blurred dark pill), share icon top-left, skill pills (max 3), location, role, name
+- [x] `"CONNECTED"` (green left) and `"PASSED"` (red right) swipe badge overlays, `opacity: 0` default
 
 ### `src/components/explore/CardCarousel.tsx`
 
-- [ ] `perspective: 1000px` container, 5-card positions (left-2, left-1, center, right-1, right-2)
-- [ ] Center: `scale(1)`, full opacity, no blur. Left/Right-1: `scale(0.85)`, 40% opacity, 4px blur, rotateY. Left/Right-2: invisible
-- [ ] Framer Motion `layout` + spring. Chevron buttons, mousewheel navigation, 4s auto-advance (pauses on hover)
+- [x] `perspective: 1000px` container, 5-card positions (left-2, left-1, center, right-1, right-2)
+- [x] Center: `scale(1)`, full opacity, no blur. Left/Right-1: `scale(0.85)`, 40% opacity, 4px blur, rotateY. Left/Right-2: invisible
+- [x] Framer Motion `layout` + spring. Chevron buttons, mousewheel navigation, 4s auto-advance (pauses on hover)
 
 ### `src/hooks/useSwipe.ts`
 
-- [ ] `@use-gesture/react` `useDrag` on center card
-- [ ] Drag: `translateX` + `rotate`, badge opacity proportional to progress, green/red glow
-- [ ] Release > threshold (`window.innerWidth * 0.12`): fly off, `useRecordSwipe` fires, carousel advances. Below threshold: spring back
+- [x] `@use-gesture/react` `useDrag` on center card
+- [x] Drag: `translateX` + `rotate`, badge opacity proportional to progress, green/red glow
+- [x] Release > threshold (`window.innerWidth * 0.12`): fly off, `useRecordSwipe` fires, carousel advances. Below threshold: spring back
 
 ### `src/components/explore/SwipeActions.tsx`
 
-- [ ] Pass (X, `52px`), Star (gold, `44px`), Connect (accent, `60px`). Framer Motion `whileHover`/`whileTap`
-- [ ] Toast: `"Connected with [Name]!"` (green) or `"Passed on [Name]"` (red), 1.8s auto-dismiss
+- [x] Pass (X, `52px`), Star (gold, `44px`), Connect (accent, `60px`). Framer Motion `whileHover`/`whileTap`
+- [x] Toast: `"Connected with [Name]!"` (green) or `"Passed on [Name]"` (red), 1.8s auto-dismiss
 
 ### `src/components/explore/MatchOverlay.tsx`
 
-- [ ] Reads `matchOverlayData` from `uiStore`. Dark backdrop, `AnimatePresence`
-- [ ] Two avatars + SVG curved line animated via `pathLength`. Traveling pulse `<circle>` via `animateMotion`
-- [ ] "It's a Match!" Playfair italic. "Send Message" → `/inbox/[match.id]`. "Keep Exploring" closes overlay
-- [ ] 80 confetti `motion.div`s, accent palette, removed after 2.5s. Auto-close 6s
+- [x] Reads `matchOverlayData` from `uiStore`. Dark backdrop, `AnimatePresence`
+- [x] Two avatars + SVG curved line animated via `pathLength`. Traveling pulse `<circle>` via `animateMotion`
+- [x] "It's a Match!" Playfair italic. "Send Message" → `/inbox/[match.id]`. "Keep Exploring" closes overlay
+- [x] 80 confetti `motion.div`s, accent palette, removed after 2.5s. Auto-close 6s
 
 ### Explore page assembly
 
-- [ ] Compose all components. When queue < 3, refetch. Skeleton cards while loading
+- [x] Compose all components. When queue < 3, refetch. Skeleton cards while loading
 
 ---
 
