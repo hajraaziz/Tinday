@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
@@ -77,13 +77,14 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   });
 
-  const passwordValue = watch("password", "");
+  // useWatch (vs watch()) subscribes via a hook the React Compiler can analyze.
+  const passwordValue = useWatch({ control, name: "password" }) ?? "";
   const strength = getPasswordStrength(passwordValue);
 
   const onSubmit = async (data: RegisterForm) => {

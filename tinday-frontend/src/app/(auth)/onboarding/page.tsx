@@ -256,8 +256,8 @@ export default function OnboardingPage() {
                     scale: 0,
                   }}
                   animate={{
-                    x: `calc(50vw + ${(Math.random() - 0.5) * 600}px)`,
-                    y: `calc(50vh + ${(Math.random() - 0.5) * 600}px)`,
+                    x: `calc(50vw + ${(((i * 71) % 100) / 100 - 0.5) * 600}px)`,
+                    y: `calc(50vh + ${(((i * 37) % 100) / 100 - 0.5) * 600}px)`,
                     scale: [0, 1, 0],
                     opacity: [1, 1, 0],
                   }}

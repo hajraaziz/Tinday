@@ -19,7 +19,10 @@ const confettiColors = [
 function ConfettiPiece({ color, index }: { color: string; index: number }) {
   const angle = (index * 137.5) % 360;
   const radians = (angle * Math.PI) / 180;
-  const distance = 150 + Math.random() * 200;
+  // Deterministic per-index spread/spin — keeps the render pure (no Math.random)
+  // while still looking scattered.
+  const distance = 150 + ((index * 53) % 200);
+  const spin = 360 + ((index * 89) % 360);
 
   return (
     <motion.div
@@ -35,7 +38,7 @@ function ConfettiPiece({ color, index }: { color: string; index: number }) {
         y: Math.sin(radians) * distance,
         opacity: [0, 1, 1, 0],
         scale: [0, 1.2, 1, 0],
-        rotate: 360 + Math.random() * 360,
+        rotate: spin,
       }}
       transition={{
         duration: 2.5,
@@ -53,9 +56,17 @@ export function MatchOverlay() {
   const closeMatchOverlay = useUIStore((s) => s.closeMatchOverlay);
   const [confettiVisible, setConfettiVisible] = useState(true);
 
+  // Re-arm confetti for each new match by adjusting state during render off a
+  // tracked previous id (avoids a synchronous setState in the effect below).
+  const currentId = matchData?.id ?? null;
+  const [shownFor, setShownFor] = useState<string | null>(currentId);
+  if (currentId !== shownFor) {
+    setShownFor(currentId);
+    setConfettiVisible(!!currentId);
+  }
+
   useEffect(() => {
     if (!matchData) return;
-    setConfettiVisible(true);
     const confettiTimer = setTimeout(() => setConfettiVisible(false), 2500);
     const closeTimer = setTimeout(() => closeMatchOverlay(), 6000);
     return () => {
