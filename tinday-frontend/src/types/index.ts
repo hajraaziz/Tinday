@@ -171,3 +171,12 @@ export interface AIConversation {
   last_message: string;
   updated_at: string;
 }
+
+// Local-only chat message. Sent to the API as { role, content } only; the
+// optional sharedProfile is rendered as a card and never leaves the browser.
+export interface AIMessage {
+  id: string;
+  role: "user" | "model";
+  content: string;
+  sharedProfile?: PublicProfile;
+}
