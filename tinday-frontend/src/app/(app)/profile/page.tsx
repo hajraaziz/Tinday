@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, useMotionValue } from "framer-motion";
-import { Settings, LogOut, Share2 } from "lucide-react";
+import { Settings, LogOut, Share2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useOwnProfile } from "@/hooks/useOwnProfile";
 import { useUploadAvatar } from "@/hooks/useUploadAvatar";
@@ -147,9 +147,17 @@ export default function ProfilePage() {
                 {primaryRole}
               </p>
             ) : null,
-            <div key="loc" className="flex items-center gap-1.5 mt-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
-              <span className="text-xs text-[#4B5563]">Available to connect</span>
+            <div key="loc" className="flex items-center gap-3 mt-2">
+              {profile.location && (
+                <span className="flex items-center gap-1 text-xs text-[#9CA3AF]">
+                  <MapPin className="w-3.5 h-3.5 text-[#8478D4]" />
+                  {profile.location}
+                </span>
+              )}
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
+                <span className="text-xs text-[#4B5563]">Available to connect</span>
+              </span>
             </div>,
           ]
             .filter(Boolean)

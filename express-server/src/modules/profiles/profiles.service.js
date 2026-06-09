@@ -26,7 +26,7 @@ export const updateProfile = async (userId, updates) => {
   if (error) throw error;
 
   // Fire-and-forget: call FastAPI /embed
-  const profileText = `${data.about || ""} ${data.skills?.join(", ") || ""} ${data.roles?.join(", ") || ""} ${JSON.stringify(data.preferences || {})}`;
+  const profileText = `${data.about || ""} ${data.skills?.join(", ") || ""} ${data.roles?.join(", ") || ""} ${data.location || ""} ${JSON.stringify(data.preferences || {})}`;
   axios
     .post(
       `${FASTAPI_URL}/embed`,
@@ -90,7 +90,7 @@ export const uploadProjectMedia = async (userId, buffer, mimetype) => {
 export const getProfileById = async (userId) => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, avatar_url, about, experience_years, skills, roles, projects")
+    .select("id, name, avatar_url, about, location, experience_years, skills, roles, projects")
     .eq("id", userId)
     .single();
 

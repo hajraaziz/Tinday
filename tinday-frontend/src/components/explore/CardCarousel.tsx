@@ -1,73 +1,32 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProfileCard } from "./ProfileCard";
 import { SwipeActions } from "./SwipeActions";
+import { useSwipe } from "@/hooks/useSwipe";
 import type { PublicProfile } from "@/types";
 
 interface CardCarouselProps {
   profiles: PublicProfile[];
   onSwipe: (profile: PublicProfile, direction: "RIGHT" | "LEFT") => void;
-  onStar?: (profile: PublicProfile) => void;
   isLoading?: boolean;
-}
-
-function getCardStyle(position: number) {
-  if (position === 0) {
-    return {
-      scale: 1,
-      opacity: 1,
-      filter: "blur(0px)",
-      rotateY: 0,
-      zIndex: 5,
-      x: 0,
-      pointerEvents: "auto" as const,
-    };
-  }
-  if (position === -1) {
-    return {
-      scale: 0.85,
-      opacity: 0.4,
-      filter: "blur(4px)",
-      rotateY: 18,
-      zIndex: 4,
-      x: "-40%",
-      pointerEvents: "none" as const,
-    };
-  }
-  if (position === 1) {
-    return {
-      scale: 0.85,
-      opacity: 0.4,
-      filter: "blur(4px)",
-      rotateY: -18,
-      zIndex: 4,
-      x: "40%",
-      pointerEvents: "none" as const,
-    };
-  }
-  return {
-    scale: 0.7,
-    opacity: 0,
-    filter: "blur(8px)",
-    rotateY: position < 0 ? 30 : -30,
-    zIndex: 3,
-    x: position < 0 ? "-80%" : "80%",
-    pointerEvents: "none" as const,
-  };
 }
 
 function SkeletonCard() {
   return (
-    <div className="relative w-64 h-96 rounded-3xl overflow-hidden flex-shrink-0 bg-[#1C1829] border border-[rgba(132,120,212,0.1)] animate-pulse">
-      <div className="absolute bottom-0 left-0 right-0 p-4">
-        <div className="h-5 w-32 bg-[#221E30] rounded mb-2" />
-        <div className="h-3 w-20 bg-[#221E30] rounded mb-2" />
+    <div className="relative w-[21rem] max-w-[86vw] h-[32rem] rounded-[1.75rem] overflow-hidden flex-shrink-0 bg-[#1C1829] border border-[rgba(132,120,212,0.1)] animate-pulse">
+      <div className="absolute top-14 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full bg-[#221E30]" />
+      <div className="absolute bottom-0 left-0 right-0 p-5">
+        <div className="h-7 w-40 bg-[#221E30] rounded mb-2" />
+        <div className="h-4 w-28 bg-[#221E30] rounded mb-3" />
+        <div className="h-3 w-full bg-[#221E30] rounded mb-1.5" />
+        <div className="h-3 w-2/3 bg-[#221E30] rounded mb-3" />
         <div className="flex gap-1.5">
-          <div className="h-5 w-14 bg-[#221E30] rounded-full" />
-          <div className="h-5 w-14 bg-[#221E30] rounded-full" />
+          <div className="h-5 w-16 bg-[#221E30] rounded-full" />
+          <div className="h-5 w-16 bg-[#221E30] rounded-full" />
+          <div className="h-5 w-12 bg-[#221E30] rounded-full" />
         </div>
       </div>
     </div>
@@ -77,60 +36,50 @@ function SkeletonCard() {
 export function CardCarousel({
   profiles,
   onSwipe,
-  onStar,
   isLoading,
 }: CardCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Direction the leaving card flies off toward (drives the exit animation).
+  const [exitDir, setExitDir] = useState<1 | -1>(1);
+
+  // Reset to the top of the feed whenever it changes (e.g. filters applied).
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [profiles.length]);
 
   const advance = useCallback(() => {
-    if (profiles.length <= 1) return;
+    if (profiles.length === 0) return;
+    setExitDir(1);
     setCurrentIndex((prev) => (prev + 1) % profiles.length);
   }, [profiles.length]);
 
   const retreat = useCallback(() => {
-    if (profiles.length <= 1) return;
+    if (profiles.length === 0) return;
+    setExitDir(-1);
     setCurrentIndex((prev) => (prev - 1 + profiles.length) % profiles.length);
   }, [profiles.length]);
 
-  useEffect(() => {
-    if (isPaused || profiles.length <= 1) return;
-    intervalRef.current = setInterval(advance, 4000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isPaused, advance, profiles.length]);
+  const handleSwipe = useCallback(
+    (direction: "RIGHT" | "LEFT") => {
+      if (profiles.length === 0) return;
+      onSwipe(profiles[currentIndex], direction);
+      setExitDir(direction === "RIGHT" ? 1 : -1);
+      setCurrentIndex((prev) => (prev + 1) % profiles.length);
+    },
+    [profiles, currentIndex, onSwipe]
+  );
 
-  useEffect(() => {
-    function handleWheel(e: WheelEvent) {
-      if (e.deltaX > 40 || e.deltaY > 40) advance();
-      else if (e.deltaX < -40 || e.deltaY < -40) retreat();
-    }
-    window.addEventListener("wheel", handleWheel, { passive: true });
-    return () => window.removeEventListener("wheel", handleWheel);
-  }, [advance, retreat]);
-
-  function handleSwipe(direction: "RIGHT" | "LEFT") {
-    if (profiles.length === 0) return;
-    const profile = profiles[currentIndex];
-    onSwipe(profile, direction);
-    advance();
-  }
-
-  function handleStar() {
-    if (profiles.length === 0) return;
-    const profile = profiles[currentIndex];
-    onStar?.(profile);
-    advance();
-  }
+  // Drag-to-swipe on the active card (mouse + touch).
+  const swipe = useSwipe({
+    onSwipeLeft: () => handleSwipe("LEFT"),
+    onSwipeRight: () => handleSwipe("RIGHT"),
+    enabled: profiles.length > 0,
+  });
 
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="relative flex items-center justify-center" style={{ perspective: "1000px" }}>
-          <SkeletonCard />
-        </div>
+        <SkeletonCard />
       </div>
     );
   }
@@ -143,86 +92,88 @@ export function CardCarousel({
             <ChevronRight className="w-8 h-8 text-[#4B5563]" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No profiles yet</h3>
-          <p className="text-sm text-[#9CA3AF]">Complete your profile to see more recommendations.</p>
+          <p className="text-sm text-[#9CA3AF]">
+            Try adjusting your filters or complete your profile to see more
+            recommendations.
+          </p>
         </div>
       </div>
     );
   }
 
+  const profile = profiles[currentIndex];
+  const flyDistance =
+    typeof window !== "undefined" ? window.innerWidth : 800;
+
+  const cardVariants = {
+    enter: { opacity: 0, scale: 0.96, x: 0, rotateZ: 0 },
+    center: { opacity: 1, scale: 1, x: 0, rotateZ: 0 },
+    exit: (dir: 1 | -1) => ({
+      x: dir * flyDistance,
+      rotateZ: dir * 18,
+      opacity: 0,
+    }),
+  };
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center">
-      <div
-        className="relative flex items-center justify-center w-full max-w-lg mx-auto"
-        style={{ perspective: "1000px" }}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
+      <div className="relative flex items-center justify-center w-full max-w-2xl mx-auto h-[32rem] flex-shrink-0">
         <button
           onClick={retreat}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
           aria-label="Previous profile"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <AnimatePresence initial={false} mode="popLayout">
-          {[-2, -1, 0, 1, 2].map((offset) => {
-            const idx =
-              (currentIndex + offset + profiles.length) % profiles.length;
-            const style = getCardStyle(offset);
-            const profile = profiles[idx];
-
-            if (Math.abs(offset) >= 2 && style.opacity === 0) return null;
-
-            return (
-              <motion.div
-                key={profile.id}
-                className="absolute"
-                animate={{
-                  opacity: style.opacity,
-                  scale: style.scale,
-                  filter: style.filter,
-                  rotateY: style.rotateY,
-                  x: style.x,
-                  zIndex: style.zIndex,
-                }}
-                initial={false}
-                transition={{
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 28,
-                }}
-                style={{
-                  transformOrigin: "center center",
-                  pointerEvents: style.pointerEvents,
-                }}
-              >
-                <ProfileCard
-                  profile={profile}
-                  index={idx}
-                />
-              </motion.div>
-            );
-          })}
+        {/* Only one card is mounted at a time; the leaving card flies off via
+            the exit animation while the next fades in. No stacked deck, so
+            there is nothing to ghost through behind it. */}
+        <AnimatePresence initial={false} custom={exitDir} mode="popLayout">
+          <motion.div
+            key={profile.id}
+            className="absolute cursor-grab active:cursor-grabbing"
+            custom={exitDir}
+            variants={cardVariants}
+            initial="enter"
+            animate={
+              swipe.isDragging
+                ? { opacity: 1, scale: 1, x: swipe.x, rotateZ: swipe.rotation }
+                : "center"
+            }
+            exit="exit"
+            transition={
+              swipe.isDragging
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 300, damping: 30 }
+            }
+            style={{ zIndex: 10 }}
+          >
+            <div {...swipe.bind()} style={{ touchAction: "pan-y" }}>
+              <ProfileCard
+                profile={profile}
+                index={currentIndex}
+                swipeDirection={swipe.isDragging ? swipe.swipeDirection : null}
+                dragProgress={swipe.progress}
+              />
+            </div>
+          </motion.div>
         </AnimatePresence>
 
         <button
           onClick={advance}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
           aria-label="Next profile"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
-      {profiles.length > 0 && (
-        <SwipeActions
-          onPass={() => handleSwipe("LEFT")}
-          onStar={handleStar}
-          onConnect={() => handleSwipe("RIGHT")}
-          profileName={profiles[currentIndex]?.name}
-        />
-      )}
+      <SwipeActions
+        onPass={() => handleSwipe("LEFT")}
+        onConnect={() => handleSwipe("RIGHT")}
+        profileName={profile?.name}
+      />
     </div>
   );
 }
