@@ -28,6 +28,7 @@ export interface Profile {
   name: string;
   avatar_url: string | null;
   about: string | null;
+  location: string | null;
   experience_years: number;
   skills: string[];
   roles: string[];
@@ -43,6 +44,7 @@ export interface PublicProfile {
   name: string;
   avatar_url: string | null;
   about: string | null;
+  location: string | null;
   experience_years: number;
   skills: string[];
   roles: string[];
@@ -53,6 +55,7 @@ export interface PublicProfile {
 export interface UpdateProfileRequest {
   name?: string;
   about?: string;
+  location?: string;
   experience_years?: number;
   skills?: string[];
   roles?: string[];

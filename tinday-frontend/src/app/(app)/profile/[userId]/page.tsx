@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, useMotionValue } from "framer-motion";
 import Image from "next/image";
-import { MessageCircle, UserPlus, Check } from "lucide-react";
+import { MessageCircle, UserPlus, Check, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { usePublicProfile } from "@/hooks/usePublicProfile";
 import { useMatches } from "@/hooks/useMatches";
@@ -136,6 +136,12 @@ export default function PublicProfilePage() {
           </h1>
           {primaryRole && (
             <p className="text-sm text-[#9CA3AF] mt-1">{primaryRole}</p>
+          )}
+          {profile.location && (
+            <span className="flex items-center gap-1 text-xs text-[#9CA3AF] mt-2">
+              <MapPin className="w-3.5 h-3.5 text-[#8478D4]" />
+              {profile.location}
+            </span>
           )}
         </div>
 

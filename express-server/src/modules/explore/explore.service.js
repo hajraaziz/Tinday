@@ -40,7 +40,7 @@ export const getExploreFeed = async (userId, filters = {}) => {
   const { data: profiles, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, name, avatar_url, about, experience_years, skills, roles, projects",
+      "id, name, avatar_url, about, location, experience_years, skills, roles, projects",
     )
     .in("id", rankedIds);
 

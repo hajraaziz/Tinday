@@ -67,6 +67,7 @@ export function EditProfileDialog({
 
   const prefs = (profile.preferences ?? {}) as Record<string, unknown>;
   const [name, setName] = useState(profile.name ?? "");
+  const [location, setLocation] = useState(profile.location ?? "");
   const [about, setAbout] = useState(profile.about ?? "");
   const [experienceYears, setExperienceYears] = useState<number>(
     profile.experience_years ?? 0
@@ -105,6 +106,7 @@ export function EditProfileDialog({
 
     const body: UpdateProfileRequest = {
       name: name.trim(),
+      location: location.trim(),
       about: about.trim(),
       experience_years: experienceYears,
       skills,
@@ -147,6 +149,19 @@ export function EditProfileDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               type="text"
+              className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm text-[#9CA3AF] mb-1.5">Location</label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              type="text"
+              placeholder="e.g. Berlin, DE or Remote"
               className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
               style={inputStyle}
             />

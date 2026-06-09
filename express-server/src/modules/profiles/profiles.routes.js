@@ -9,6 +9,7 @@ const router = express.Router();
 const updateProfileSchema = z.object({
   name: z.string().min(1).optional(),
   about: z.string().optional(),
+  location: z.string().optional(),
   experience_years: z.number().int().min(0).optional(),
   skills: z.array(z.string()).optional(),
   roles: z.array(z.string()).optional(),
