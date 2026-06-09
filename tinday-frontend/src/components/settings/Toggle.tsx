@@ -9,7 +9,9 @@ interface ToggleProps {
   ariaLabel?: string;
 }
 
-// 44×24 switch. Track #2a2a2a → #8478D4 when active; thumb animates x: 2 → 22.
+// 44×24 switch. Track #2a2a2a → #8478D4 when active. The thumb is 20px with a
+// 2px inset and slides x: 0 → 20. Vertical centering uses top/left insets (not
+// a translate) so Framer Motion's animated `transform` doesn't clobber it.
 export function Toggle({ checked, onChange, disabled, ariaLabel }: ToggleProps) {
   return (
     <button
@@ -23,8 +25,8 @@ export function Toggle({ checked, onChange, disabled, ariaLabel }: ToggleProps) 
       style={{ background: checked ? "#8478D4" : "#2a2a2a" }}
     >
       <motion.span
-        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow"
-        animate={{ x: checked ? 22 : 2 }}
+        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow"
+        animate={{ x: checked ? 20 : 0 }}
         transition={{ type: "spring", stiffness: 500, damping: 30 }}
       />
     </button>
