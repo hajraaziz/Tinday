@@ -1,0 +1,143 @@
+import { useEffect } from "react";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api, apiGet, apiPost } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
+import { useUIStore } from "@/store/uiStore";
+import type { AppNotification, NotificationsResponse } from "@/types";
+
+const KEY = ["notifications"];
+
+// Merge freshly-arrived notifications into the cache, newest first, de-duped.
+function mergeNotifications(
+  queryClient: QueryClient,
+  incoming: AppNotification[]
+) {
+  if (!incoming.length) return;
+  queryClient.setQueryData<NotificationsResponse>(KEY, (prev) => {
+    const existing = prev?.notifications ?? [];
+    const seen = new Set(existing.map((n) => n.id));
+    const fresh = incoming.filter((n) => !seen.has(n.id));
+    if (!fresh.length) return prev;
+    const notifications = [...fresh, ...existing].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at)
+    );
+    const addedUnread = fresh.filter((n) => !n.read_at).length;
+    return {
+      notifications,
+      unread_count: (prev?.unread_count ?? 0) + addedUnread,
+    };
+  });
+}
+
+// List + unread badge, plus mark-read mutations. Consumed by TopNav.
+export function useNotifications() {
+  const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  const query = useQuery<NotificationsResponse>({
+    queryKey: KEY,
+    queryFn: () => apiGet<NotificationsResponse>("/api/notifications"),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 30,
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: () => apiPost("/api/notifications/read-all"),
+    onSuccess: () => {
+      queryClient.setQueryData<NotificationsResponse>(KEY, (prev) =>
+        prev
+          ? {
+              notifications: prev.notifications.map((n) => ({
+                ...n,
+                read_at: n.read_at ?? new Date().toISOString(),
+              })),
+              unread_count: 0,
+            }
+          : prev
+      );
+    },
+  });
+
+  return {
+    notifications: query.data?.notifications ?? [],
+    unreadCount: query.data?.unread_count ?? 0,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    markAllRead: () => markAllRead.mutate(),
+  };
+}
+
+// Single long-poll loop. Holds a request open ~27s server-side, wakes the
+// instant a notification is created, merges it into the cache and re-opens
+// immediately. Mount EXACTLY ONCE (in the app layout). Aborts on logout/unmount.
+export function useNotificationStream() {
+  const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const controller = new AbortController();
+    let stopped = false;
+    let backoff = 1000;
+    // Only stream notifications created after the loop starts; history comes
+    // from the useNotifications() query.
+    const startAt = new Date().toISOString();
+
+    const cursor = () => {
+      const data = queryClient.getQueryData<NotificationsResponse>(KEY);
+      const newest = data?.notifications?.[0]?.created_at;
+      return newest && newest > startAt ? newest : startAt;
+    };
+
+    const sleep = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    const handleIncoming = (incoming: AppNotification[]) => {
+      mergeNotifications(queryClient, incoming);
+      const activeMatch = useUIStore.getState().activeConversationId;
+      for (const n of incoming) {
+        // Keep adjacent views fresh.
+        if (n.type === "message") {
+          queryClient.invalidateQueries({ queryKey: ["inbox"] });
+        } else if (n.type === "match") {
+          queryClient.invalidateQueries({ queryKey: ["matches"] });
+          queryClient.invalidateQueries({ queryKey: ["inbox"] });
+        }
+        // Don't toast a message you're already looking at.
+        if (n.type === "message" && n.data?.matchId === activeMatch) continue;
+        toast(n.title, { description: n.body ?? undefined });
+      }
+    };
+
+    const loop = async () => {
+      while (!stopped) {
+        try {
+          const res = await api.get<NotificationsResponse>(
+            "/api/notifications/stream",
+            { params: { after: cursor() }, signal: controller.signal }
+          );
+          handleIncoming(res.data.notifications ?? []);
+          backoff = 1000;
+        } catch {
+          if (stopped || controller.signal.aborted) break;
+          await sleep(backoff);
+          backoff = Math.min(backoff * 2, 30000);
+        }
+      }
+    };
+
+    loop();
+
+    return () => {
+      stopped = true;
+      controller.abort();
+    };
+  }, [isAuthenticated, queryClient]);
+}

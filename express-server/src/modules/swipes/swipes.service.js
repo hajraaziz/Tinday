@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase.js";
 import axios from "axios";
+import { createNotification } from "../notifications/notifications.service.js";
 
 const FASTAPI_URL = process.env.FASTAPI_INTERNAL_URL || "http://fastapi:8000";
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET;
@@ -52,6 +53,10 @@ export const recordSwipe = async (giverId, receiverId, direction) => {
 
       if (!matchError) {
         match = newMatch;
+        // Fire-and-forget: notify both users of the new match.
+        notifyMatch(newMatch.id, giverId, receiverId).catch((err) =>
+          console.error("Match notification failed:", err.message),
+        );
       }
     }
   }
@@ -68,4 +73,28 @@ export const recordSwipe = async (giverId, receiverId, direction) => {
     );
 
   return { swipe, match };
+};
+
+// Notify both participants of a new match, each with the other's name.
+const notifyMatch = async (matchId, giverId, receiverId) => {
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .in("id", [giverId, receiverId]);
+
+  const nameOf = (id) =>
+    profiles?.find((p) => p.id === id)?.name || "Someone";
+
+  createNotification(receiverId, {
+    type: "match",
+    title: "New match!",
+    body: `You matched with ${nameOf(giverId)}.`,
+    data: { matchId, otherUserId: giverId },
+  });
+  createNotification(giverId, {
+    type: "match",
+    title: "New match!",
+    body: `You matched with ${nameOf(receiverId)}.`,
+    data: { matchId, otherUserId: receiverId },
+  });
 };

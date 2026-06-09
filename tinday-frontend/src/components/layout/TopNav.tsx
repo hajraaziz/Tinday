@@ -1,65 +1,27 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Search, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
-import { getInitials } from "@/lib/utils";
+import { useNotifications } from "@/hooks/useNotifications";
+import { getInitials, formatRelativeTime, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
-
-interface Notification {
-  id: string;
-  type: "match" | "message" | "view";
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "match",
-    title: "New Match!",
-    body: "You matched with Sarah Chen",
-    time: "2m ago",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "message",
-    title: "New Message",
-    body: "Alex Rivera sent you a message",
-    time: "15m ago",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "view",
-    title: "Profile Viewed",
-    body: "James Kim viewed your profile",
-    time: "1h ago",
-    read: true,
-  },
-];
+import type { AppNotification } from "@/types";
 
 export function TopNav() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
   const { notificationPanelOpen, setNotificationPanel } = useUIStore();
   const panelRef = useRef<HTMLDivElement>(null);
-  const [notifications] = useState<Notification[]>(mockNotifications);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const { notifications, unreadCount, markAllRead } = useNotifications();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(e.target as Node)
-      ) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setNotificationPanel(false);
       }
     }
@@ -70,6 +32,18 @@ export function TopNav() {
   }, [notificationPanelOpen, setNotificationPanel]);
 
   const initials = profile?.name ? getInitials(profile.name) : "?";
+
+  const togglePanel = () => {
+    const next = !notificationPanelOpen;
+    setNotificationPanel(next);
+    // Clear the unread badge as soon as the user opens the panel.
+    if (next && unreadCount > 0) markAllRead();
+  };
+
+  const handleNotificationClick = (n: AppNotification) => {
+    setNotificationPanel(false);
+    if (n.data?.matchId) router.push(`/inbox/${n.data.matchId}`);
+  };
 
   return (
     <>
@@ -95,14 +69,14 @@ export function TopNav() {
         {/* Right actions */}
         <div className="flex items-center gap-3 ml-auto md:pr-8">
           <button
-            onClick={() => setNotificationPanel(!notificationPanelOpen)}
+            onClick={togglePanel}
             className="relative flex items-center justify-center w-10 h-10 rounded-xl hover:bg-[rgba(132,120,212,0.06)] transition-colors"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5 text-[#9CA3AF]" />
             {unreadCount > 0 && (
-              <span className="absolute top-2 right-2 w-[18px] h-[18px] rounded-full bg-[#8478D4] text-white text-[10px] font-semibold flex items-center justify-center">
-                {unreadCount}
+              <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#8478D4] text-white text-[10px] font-semibold flex items-center justify-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
           </button>
@@ -143,43 +117,53 @@ export function TopNav() {
                 <button
                   onClick={() => setNotificationPanel(false)}
                   className="text-[#9CA3AF] hover:text-white transition-colors"
+                  aria-label="Close"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="max-h-[400px] overflow-y-auto">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={cn(
-                      "px-5 py-3 border-b border-[rgba(132,120,212,0.04)] hover:bg-[rgba(132,120,212,0.03)] transition-colors cursor-pointer",
-                      !n.read && "bg-[rgba(132,120,212,0.04)]"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                          n.type === "match" && "bg-[#F59E0B]",
-                          n.type === "message" && "bg-[#8478D4]",
-                          n.type === "view" && "bg-[#22C55E]"
-                        )}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white">
-                          {n.title}
-                        </p>
-                        <p className="text-xs text-[#9CA3AF] mt-0.5">
-                          {n.body}
-                        </p>
-                      </div>
-                      <span className="text-[10px] text-[#4B5563] shrink-0">
-                        {n.time}
-                      </span>
-                    </div>
+                {notifications.length === 0 ? (
+                  <div className="px-5 py-10 text-center">
+                    <p className="text-sm text-[#9CA3AF]">
+                      You&apos;re all caught up.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  notifications.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={cn(
+                        "w-full text-left px-5 py-3 border-b border-[rgba(132,120,212,0.04)] hover:bg-[rgba(132,120,212,0.03)] transition-colors",
+                        !n.read_at && "bg-[rgba(132,120,212,0.04)]"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={cn(
+                            "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                            n.type === "match" ? "bg-[#F59E0B]" : "bg-[#8478D4]"
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {n.title}
+                          </p>
+                          {n.body && (
+                            <p className="text-xs text-[#9CA3AF] mt-0.5 line-clamp-2">
+                              {n.body}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-[#4B5563] shrink-0">
+                          {formatRelativeTime(n.created_at)}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </motion.div>
           </>

@@ -1,0 +1,17 @@
+{
+  "name": "Tinday",
+  "short_name": "Tinday",
+  "description": "Swipe-based professional networking",
+  "start_url": "/explore",
+  "display": "standalone",
+  "background_color": "#151515",
+  "theme_color": "#151515",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

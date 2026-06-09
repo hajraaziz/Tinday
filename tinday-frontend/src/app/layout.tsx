@@ -25,6 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Tinday",
   description: "Swipe-based professional networking",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
