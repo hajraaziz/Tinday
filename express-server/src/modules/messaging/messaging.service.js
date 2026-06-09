@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase.js";
+import { createNotification } from "../notifications/notifications.service.js";
 
 /**
  * Verify if a user is part of a match
@@ -59,7 +60,7 @@ export const getMessages = async (matchId, userId, from = 0, to = 49) => {
  * Send a message to a match
  */
 export const sendMessage = async (matchId, userId, content) => {
-  await verifyMatchMembership(matchId, userId);
+  const match = await verifyMatchMembership(matchId, userId);
 
   const { data, error } = await supabase
     .from("messages")
@@ -72,7 +73,37 @@ export const sendMessage = async (matchId, userId, content) => {
     .single();
 
   if (error) throw error;
+
+  // Fire-and-forget: notify the recipient (the other member of the match).
+  const recipientId =
+    match.user_a_id === userId ? match.user_b_id : match.user_a_id;
+  notifyMessage(recipientId, userId, matchId, data).catch((err) =>
+    console.error("Message notification failed:", err.message),
+  );
+
   return data;
+};
+
+// Notify the recipient of a new message, titled with the sender's name and a
+// truncated preview as the body.
+const notifyMessage = async (recipientId, senderId, matchId, message) => {
+  const { data: sender } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", senderId)
+    .maybeSingle();
+
+  const preview =
+    message.content.length > 120
+      ? `${message.content.slice(0, 120)}…`
+      : message.content;
+
+  createNotification(recipientId, {
+    type: "message",
+    title: sender?.name || "New message",
+    body: preview,
+    data: { matchId, messageId: message.id, senderId },
+  });
 };
 
 /**

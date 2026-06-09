@@ -7,6 +7,7 @@ import { ArrowLeft, Lock, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { Toggle } from "@/components/settings/Toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,6 +104,28 @@ export default function SettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    isBusy: pushBusy,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+  } = usePushSubscription();
+
+  const handlePushToggle = async (next: boolean) => {
+    if (next) {
+      const ok = await subscribePush();
+      toast[ok ? "success" : "error"](
+        ok
+          ? "Push notifications enabled"
+          : "Couldn't enable push — permission was blocked."
+      );
+    } else {
+      await unsubscribePush();
+      toast.success("Push notifications disabled");
+    }
+  };
+
   // Load persisted toggles on mount (client-only to avoid SSR mismatch).
   useEffect(() => {
     try {
@@ -198,6 +221,21 @@ export default function SettingsPage() {
 
         {/* Notifications */}
         <Section title="Notifications">
+          <SettingRow
+            label="Browser push notifications"
+            description={
+              pushSupported
+                ? "Get OS banners when the app is in the background"
+                : "Not supported in this browser"
+            }
+          >
+            <Toggle
+              ariaLabel="Browser push notifications"
+              checked={pushSubscribed}
+              disabled={!pushSupported || pushBusy}
+              onChange={handlePushToggle}
+            />
+          </SettingRow>
           <SettingRow label="New match">
             <Toggle
               ariaLabel="New match notifications"

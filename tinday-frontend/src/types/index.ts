@@ -121,6 +121,30 @@ export interface InboxEntry {
   last_activity: string;
 }
 
+// In-app notification (GET /api/notifications)
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: "match" | "message";
+  title: string;
+  body: string | null;
+  data: {
+    matchId?: string;
+    otherUserId?: string;
+    messageId?: string;
+    senderId?: string;
+    [key: string]: unknown;
+  };
+  read_at: string | null;
+  created_at: string;
+}
+
+// Response shape of GET /api/notifications
+export interface NotificationsResponse {
+  notifications: AppNotification[];
+  unread_count: number;
+}
+
 // Matches OpenAPI: PaginatedProfiles schema
 export interface PaginatedProfiles {
   profiles: Profile[];

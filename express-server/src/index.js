@@ -15,6 +15,7 @@ import swipesRoutes from "./modules/swipes/swipes.routes.js";
 import matchesRoutes from "./modules/matches/matches.routes.js";
 import exploreRoutes from "./modules/explore/explore.routes.js";
 import messagingRoutes from "./modules/messaging/messaging.routes.js";
+import notificationsRoutes from "./modules/notifications/notifications.routes.js";
 import aiProxyRoutes from "./modules/ai-proxy/ai-proxy.routes.js";
 
 dotenv.config();
@@ -30,6 +31,9 @@ const globalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100,
   message: { error: "Too many requests, please try again later." },
+  // The notification long-poll holds a request open ~27s and reconnects
+  // immediately, so it would otherwise burn through the global budget and 429.
+  skip: (req) => req.path === "/api/notifications/stream",
 });
 
 // Auth Rate Limiter
@@ -63,6 +67,7 @@ app.use("/api/swipes", swipesRoutes);
 app.use("/api/matches", matchesRoutes);
 app.use("/api/explore", exploreRoutes);
 app.use("/api/messaging", messagingRoutes);
+app.use("/api/notifications", notificationsRoutes);
 app.use("/api/ai", aiProxyRoutes);
 
 app.get("/health", (req, res) => {

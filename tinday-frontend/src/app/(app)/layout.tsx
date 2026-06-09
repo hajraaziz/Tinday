@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { useNotificationStream } from "@/hooks/useNotifications";
 import { TopNav } from "@/components/layout/TopNav";
 import { SideRail } from "@/components/layout/SideRail";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -11,6 +12,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
+
+  // Single live notification long-poll for the whole app shell.
+  useNotificationStream();
 
   useEffect(() => {
     // Wait for persisted auth to rehydrate before deciding to redirect,
