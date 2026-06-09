@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, useMotionValue } from "framer-motion";
 import Image from "next/image";
-import { MessageCircle, UserPlus, Check, MapPin } from "lucide-react";
+import { MessageCircle, UserPlus, Check, MapPin, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { usePublicProfile } from "@/hooks/usePublicProfile";
 import { useMatches } from "@/hooks/useMatches";
 import { useRecordSwipe } from "@/hooks/useRecordSwipe";
 import { useAuthStore } from "@/store/authStore";
+import { useAIStore } from "@/store/aiStore";
 import { ProfileBody } from "@/components/profile/ProfileBody";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
@@ -31,6 +32,7 @@ export default function PublicProfilePage() {
     usePublicProfile(userId);
   const { data: matches = [] } = useMatches();
   const recordSwipe = useRecordSwipe();
+  const createConversation = useAIStore((s) => s.createConversation);
   const [sentConnect, setSentConnect] = useState(false);
 
   // Cover parallax off the app shell's <main> scroll container.
@@ -68,6 +70,11 @@ export default function PublicProfilePage() {
   }
 
   const primaryRole = profile.roles?.[0];
+
+  const handleAskAI = () => {
+    const id = createConversation();
+    router.push(`/chat/${id}?share=${profile.id}`);
+  };
 
   const handleConnect = () => {
     recordSwipe.mutate(
@@ -172,6 +179,14 @@ export default function PublicProfilePage() {
               )}
             </Button>
           )}
+          <Button
+            onClick={handleAskAI}
+            variant="outline"
+            className="border-[rgba(132,120,212,0.3)] bg-transparent text-[#8478D4] hover:bg-[rgba(132,120,212,0.08)] hover:text-[#8478D4]"
+          >
+            <Sparkles className="w-4 h-4" />
+            Ask AI
+          </Button>
         </div>
 
         {/* Content cards */}

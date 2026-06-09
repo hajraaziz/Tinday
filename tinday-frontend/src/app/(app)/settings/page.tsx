@@ -127,14 +127,18 @@ export default function SettingsPage() {
   };
 
   // Load persisted toggles on mount (client-only to avoid SSR mismatch).
+  // Deferred to a microtask so we don't setState synchronously in the effect
+  // body; the loader gate below covers the one-frame gap.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setSettings({ ...DEFAULTS, ...JSON.parse(raw) });
-    } catch {
-      // ignore corrupt storage
-    }
-    setHydrated(true);
+    queueMicrotask(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) setSettings({ ...DEFAULTS, ...JSON.parse(raw) });
+      } catch {
+        // ignore corrupt storage
+      }
+      setHydrated(true);
+    });
   }, []);
 
   const set = (key: keyof SettingsState) => (value: boolean) => {

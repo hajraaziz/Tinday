@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Share2, MapPin, FolderGit2, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
@@ -98,9 +99,11 @@ export function ProfileCard({
       {/* avatar */}
       <div className="absolute top-14 left-1/2 -translate-x-1/2">
         {profile.avatar_url ? (
-          <img
+          <Image
             src={profile.avatar_url}
             alt={profile.name}
+            width={128}
+            height={128}
             className="w-32 h-32 rounded-full object-cover border-2 border-[rgba(132,120,212,0.35)] shadow-lg"
           />
         ) : (

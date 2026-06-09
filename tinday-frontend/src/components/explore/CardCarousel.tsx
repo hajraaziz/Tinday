@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProfileCard } from "./ProfileCard";
@@ -43,9 +43,13 @@ export function CardCarousel({
   const [exitDir, setExitDir] = useState<1 | -1>(1);
 
   // Reset to the top of the feed whenever it changes (e.g. filters applied).
-  useEffect(() => {
+  // Adjusting state during render off a tracked prev value is the React-blessed
+  // alternative to a reset effect (no extra commit / cascading render).
+  const [prevCount, setPrevCount] = useState(profiles.length);
+  if (prevCount !== profiles.length) {
+    setPrevCount(profiles.length);
     setCurrentIndex(0);
-  }, [profiles.length]);
+  }
 
   const advance = useCallback(() => {
     if (profiles.length === 0) return;

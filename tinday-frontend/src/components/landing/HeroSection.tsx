@@ -50,7 +50,9 @@ function LiveClock() {
   }, []);
 
   useEffect(() => {
-    update();
+    // Defer the first tick to a microtask so we don't setState synchronously in
+    // the effect body; the interval drives every tick after that.
+    queueMicrotask(update);
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [update]);

@@ -37,7 +37,7 @@ export function useSwipe({
   const [isDragging, setIsDragging] = useState(false);
 
   const bind = useDrag(
-    ({ active, movement: [mx], velocity: [vx], direction: [dx], cancel }) => {
+    ({ active, movement: [mx], velocity: [vx], direction: [dx] }) => {
       if (!enabled) return;
 
       const progress = Math.min(Math.abs(mx) / swipeThreshold, 1);
