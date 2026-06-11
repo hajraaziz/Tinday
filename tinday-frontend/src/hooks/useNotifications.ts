@@ -107,12 +107,38 @@ export function useNotifications() {
     },
   });
 
+  // Optimistically mark a single notification read (on click). Flips its
+  // read_at and decrements the unread badge; no-ops if already read.
+  const markRead = useMutation({
+    mutationFn: (id: string) => apiPost(`/api/notifications/${id}/read`),
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: KEY });
+      const prev = queryClient.getQueryData<NotificationsResponse>(KEY);
+      queryClient.setQueryData<NotificationsResponse>(KEY, (curr) => {
+        if (!curr) return curr;
+        const target = curr.notifications.find((n) => n.id === id);
+        if (!target || target.read_at) return curr;
+        return {
+          notifications: curr.notifications.map((n) =>
+            n.id === id ? { ...n, read_at: new Date().toISOString() } : n
+          ),
+          unread_count: Math.max(0, curr.unread_count - 1),
+        };
+      });
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(KEY, ctx.prev);
+    },
+  });
+
   return {
     notifications: query.data?.notifications ?? [],
     unreadCount: query.data?.unread_count ?? 0,
     isLoading: query.isLoading,
     isError: query.isError,
     markAllRead: () => markAllRead.mutate(),
+    markRead: (id: string) => markRead.mutate(id),
     dismissNotification: (id: string) => dismiss.mutate(id),
   };
 }

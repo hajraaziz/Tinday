@@ -32,7 +32,7 @@ export function TopNav() {
   const panelRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<NotificationTab>("all");
 
-  const { notifications, unreadCount, markAllRead, dismissNotification } =
+  const { notifications, unreadCount, markRead, dismissNotification } =
     useNotifications();
 
   const visibleNotifications =
@@ -55,13 +55,12 @@ export function TopNav() {
   const initials = profile?.name ? getInitials(profile.name) : "?";
 
   const togglePanel = () => {
-    const next = !notificationPanelOpen;
-    setNotificationPanel(next);
-    // Clear the unread badge as soon as the user opens the panel.
-    if (next && unreadCount > 0) markAllRead();
+    setNotificationPanel(!notificationPanelOpen);
   };
 
   const handleNotificationClick = (n: AppNotification) => {
+    // Read-on-click: only the clicked item clears its unread highlight.
+    if (!n.read_at) markRead(n.id);
     setNotificationPanel(false);
     const href = routeForNotification(n);
     if (href) router.push(withNavNonce(href));

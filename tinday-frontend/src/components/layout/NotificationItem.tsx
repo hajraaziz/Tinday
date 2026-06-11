@@ -58,8 +58,10 @@ export function NotificationItem({
           onOpen();
         }}
         className={cn(
-          "relative w-full px-5 py-3 cursor-pointer touch-pan-y",
-          n.read_at ? "bg-[#1C1829]" : "bg-[#201C30]"
+          "relative w-full px-5 py-3 cursor-pointer touch-pan-y transition-colors",
+          n.read_at
+            ? "bg-[#1C1829] hover:bg-[#211D2E]"
+            : "bg-[#262134] hover:bg-[#2B2640]"
         )}
       >
         <div className="flex items-start gap-3">
