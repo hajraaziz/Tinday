@@ -156,6 +156,16 @@ export const markAllRead = async (userId) => {
   if (error) throw error;
 };
 
+export const deleteNotification = async (userId, id) => {
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+};
+
 /**
  * Rows created strictly after the `after` cursor (ISO timestamp), oldest first.
  * Used by the long-poll endpoint to drain anything missed between reconnects.

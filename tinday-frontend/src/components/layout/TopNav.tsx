@@ -11,8 +11,9 @@ import {
   routeForNotification,
   withNavNonce,
 } from "@/hooks/useNotifications";
-import { getInitials, formatRelativeTime, cn } from "@/lib/utils";
+import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { NotificationItem } from "@/components/layout/NotificationItem";
 import type { AppNotification } from "@/types";
 
 type NotificationTab = "all" | "match" | "connect" | "message";
@@ -31,7 +32,8 @@ export function TopNav() {
   const panelRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<NotificationTab>("all");
 
-  const { notifications, unreadCount, markAllRead } = useNotifications();
+  const { notifications, unreadCount, markAllRead, dismissNotification } =
+    useNotifications();
 
   const visibleNotifications =
     activeTab === "all"
@@ -174,40 +176,12 @@ export function TopNav() {
                   </div>
                 ) : (
                   visibleNotifications.map((n) => (
-                    <button
+                    <NotificationItem
                       key={n.id}
-                      onClick={() => handleNotificationClick(n)}
-                      className={cn(
-                        "w-full text-left px-5 py-3 border-b border-[rgba(132,120,212,0.04)] hover:bg-[rgba(132,120,212,0.03)] transition-colors",
-                        !n.read_at && "bg-[rgba(132,120,212,0.04)]"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={cn(
-                            "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                            n.type === "match"
-                              ? "bg-[#F59E0B]"
-                              : n.type === "connect"
-                                ? "bg-[#22C55E]"
-                                : "bg-[#8478D4]"
-                          )}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">
-                            {n.title}
-                          </p>
-                          {n.body && (
-                            <p className="text-xs text-[#9CA3AF] mt-0.5 line-clamp-2">
-                              {n.body}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-[#4B5563] shrink-0">
-                          {formatRelativeTime(n.created_at)}
-                        </span>
-                      </div>
-                    </button>
+                      notification={n}
+                      onOpen={() => handleNotificationClick(n)}
+                      onDismiss={() => dismissNotification(n.id)}
+                    />
                   ))
                 )}
               </div>

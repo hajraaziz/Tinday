@@ -7,7 +7,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api, apiGet, apiPost } from "@/lib/api";
+import { api, apiGet, apiPost, apiDelete } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import type { AppNotification, NotificationsResponse } from "@/types";
@@ -82,12 +82,38 @@ export function useNotifications() {
     },
   });
 
+  // Optimistically remove a single notification, restoring it if the request
+  // fails. Decrements the unread badge when the dismissed item was unread.
+  const dismiss = useMutation({
+    mutationFn: (id: string) => apiDelete(`/api/notifications/${id}`),
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: KEY });
+      const prev = queryClient.getQueryData<NotificationsResponse>(KEY);
+      queryClient.setQueryData<NotificationsResponse>(KEY, (curr) => {
+        if (!curr) return curr;
+        const target = curr.notifications.find((n) => n.id === id);
+        return {
+          notifications: curr.notifications.filter((n) => n.id !== id),
+          unread_count:
+            target && !target.read_at
+              ? Math.max(0, curr.unread_count - 1)
+              : curr.unread_count,
+        };
+      });
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(KEY, ctx.prev);
+    },
+  });
+
   return {
     notifications: query.data?.notifications ?? [],
     unreadCount: query.data?.unread_count ?? 0,
     isLoading: query.isLoading,
     isError: query.isError,
     markAllRead: () => markAllRead.mutate(),
+    dismissNotification: (id: string) => dismiss.mutate(id),
   };
 }
 

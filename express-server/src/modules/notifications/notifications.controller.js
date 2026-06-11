@@ -28,6 +28,11 @@ export const markAllRead = async (req, res) => {
   res.json({ success: true });
 };
 
+export const remove = async (req, res) => {
+  await notificationsService.deleteNotification(req.user.id, req.params.id);
+  res.json({ success: true });
+};
+
 export const subscribePush = async (req, res) => {
   await notificationsService.saveSubscription(
     req.user.id,

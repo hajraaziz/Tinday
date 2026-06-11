@@ -25,6 +25,7 @@ router.get("/unread-count", notificationsController.unreadCount);
 router.get("/stream", notificationsController.stream);
 router.post("/read-all", notificationsController.markAllRead);
 router.post("/:id/read", notificationsController.markRead);
+router.delete("/:id", notificationsController.remove);
 router.post(
   "/push/subscribe",
   validate(subscribeSchema),
