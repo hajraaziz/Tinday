@@ -54,3 +54,9 @@ export const setHidden = async (req, res) => {
   );
   res.json(state);
 };
+
+export const markRead = async (req, res) => {
+  const { matchId } = req.params;
+  const result = await messagingService.markMatchRead(matchId, req.user.id);
+  res.json(result);
+};

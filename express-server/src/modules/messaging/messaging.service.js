@@ -41,19 +41,35 @@ export const getMessages = async (matchId, userId, from = 0, to = 49) => {
 
   if (error) throw error;
 
-  // Bulk update unread messages as read
-  // Fire and forget
+  // Bulk-mark the other party's unread messages as read. Fire and forget.
+  markMessagesRead(matchId, userId).then(({ error: updateError }) => {
+    if (updateError) console.error("Error updating read_at:", updateError);
+  });
+
+  return data;
+};
+
+/**
+ * Mark every message the OTHER party sent in this match as read.
+ * Returns the Supabase update result ({ error }); callers decide to await or not.
+ */
+export const markMessagesRead = (matchId, userId) =>
   supabase
     .from("messages")
     .update({ read_at: new Date().toISOString() })
     .eq("match_id", matchId)
     .neq("sender_id", userId)
-    .is("read_at", null)
-    .then(({ error: updateError }) => {
-      if (updateError) console.error("Error updating read_at:", updateError);
-    });
+    .is("read_at", null);
 
-  return data;
+/**
+ * Explicitly mark a conversation read (e.g. from the inbox ⋯ menu), guarded by
+ * match membership and awaited so the response reflects completion.
+ */
+export const markMatchRead = async (matchId, userId) => {
+  await verifyMatchMembership(matchId, userId);
+  const { error } = await markMessagesRead(matchId, userId);
+  if (error) throw error;
+  return { success: true };
 };
 
 /**

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, BellOff, MoreHorizontal, Trash2 } from "lucide-react";
+import { Bell, BellOff, CheckCheck, MoreHorizontal, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,7 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSetMute, useSetChatHidden } from "@/hooks/useInboxActions";
+import {
+  useSetMute,
+  useSetChatHidden,
+  useMarkChatRead,
+} from "@/hooks/useInboxActions";
 import { cn, getInitials, formatRelativeTime } from "@/lib/utils";
 import type { InboxEntry } from "@/types";
 
@@ -33,12 +37,18 @@ export function ConversationRow({
 
   const setMute = useSetMute();
   const setHidden = useSetChatHidden();
+  const markRead = useMarkChatRead();
 
   const preview = latest_message
     ? `${latest_message.sender_id === currentUserId ? "You: " : ""}${
         latest_message.content
       }`
     : "You matched — say hello 👋";
+
+  const handleMarkRead = () => {
+    markRead.mutate({ matchId: entry.match_id });
+    toast(`Marked chat with ${other_user.name} as read`);
+  };
 
   const handleMute = () => {
     setMute.mutate({ matchId: entry.match_id, muted: !isMuted });
@@ -139,6 +149,14 @@ export function ConversationRow({
           align="end"
           className="w-44 bg-[#1A1726] border-[rgba(132,120,212,0.12)] text-white"
         >
+          <DropdownMenuItem
+            onClick={handleMarkRead}
+            disabled={!hasUnread}
+            className="cursor-pointer focus:bg-[rgba(132,120,212,0.12)] focus:text-white"
+          >
+            <CheckCheck className="w-4 h-4" />
+            Mark as read
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleMute}
             className="cursor-pointer focus:bg-[rgba(132,120,212,0.12)] focus:text-white"

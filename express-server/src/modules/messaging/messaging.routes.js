@@ -26,6 +26,9 @@ router.post(
   messagingController.sendMessage,
 );
 
+// Explicitly mark a conversation read from the inbox ⋯ menu (no body).
+router.post("/matches/:matchId/read", messagingController.markRead);
+
 // Per-user inbox state: mute and soft-delete (hide). Idempotent PUTs carry the
 // desired state so concurrent devices converge instead of racing a toggle.
 router.put(
