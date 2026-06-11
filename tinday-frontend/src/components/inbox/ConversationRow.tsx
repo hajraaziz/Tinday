@@ -8,9 +8,14 @@ import type { InboxEntry } from "@/types";
 interface ConversationRowProps {
   entry: InboxEntry;
   currentUserId?: string;
+  isActive?: boolean;
 }
 
-export function ConversationRow({ entry, currentUserId }: ConversationRowProps) {
+export function ConversationRow({
+  entry,
+  currentUserId,
+  isActive = false,
+}: ConversationRowProps) {
   const router = useRouter();
   const { other_user, latest_message, unread_count } = entry;
   const hasUnread = unread_count > 0;
@@ -24,7 +29,12 @@ export function ConversationRow({ entry, currentUserId }: ConversationRowProps) 
   return (
     <button
       onClick={() => router.push(`/inbox/${entry.match_id}`)}
-      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(132,120,212,0.06)]"
+      className={cn(
+        "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
+        isActive
+          ? "bg-[rgba(132,120,212,0.12)]"
+          : "hover:bg-[rgba(132,120,212,0.06)]"
+      )}
     >
       <Avatar className="w-12 h-12 shrink-0">
         <AvatarImage src={other_user.avatar_url ?? undefined} />

@@ -212,8 +212,8 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* Settings links */}
-        <div className="mt-6 rounded-2xl overflow-hidden bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
+        {/* Settings links — mobile only; desktop uses the sidebar footer */}
+        <div className="md:hidden mt-6 rounded-2xl overflow-hidden bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
           <button
             onClick={() => router.push("/settings")}
             className="w-full flex items-center gap-3 px-5 py-4 text-left text-white hover:bg-[rgba(132,120,212,0.04)] transition-colors border-b border-[rgba(132,120,212,0.06)]"

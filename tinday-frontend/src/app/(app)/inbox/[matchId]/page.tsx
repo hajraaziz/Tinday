@@ -80,7 +80,7 @@ export default function ThreadPage() {
       <header className="shrink-0 flex items-center gap-3 px-3 py-3 border-b border-[rgba(132,120,212,0.08)] bg-[#151515]">
         <button
           onClick={() => router.push("/inbox")}
-          className="w-9 h-9 flex items-center justify-center rounded-full text-[#9CA3AF] hover:bg-[rgba(132,120,212,0.08)] hover:text-white transition-colors"
+          className="md:hidden w-9 h-9 flex items-center justify-center rounded-full text-[#9CA3AF] hover:bg-[rgba(132,120,212,0.08)] hover:text-white transition-colors"
           aria-label="Back to messages"
         >
           <ArrowLeft className="w-5 h-5" />
