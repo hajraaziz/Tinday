@@ -110,7 +110,8 @@ export function useNotificationStream() {
           queryClient.invalidateQueries({ queryKey: ["matches"] });
           queryClient.invalidateQueries({ queryKey: ["inbox"] });
         }
-        // Don't toast a message you're already looking at.
+        // Don't toast a message you're already looking at. (Muted chats never
+        // reach here — the server skips notifications for them at the source.)
         if (n.type === "message" && n.data?.matchId === activeMatch) continue;
         toast(n.title, { description: n.body ?? undefined });
       }

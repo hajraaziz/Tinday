@@ -119,6 +119,8 @@ export interface InboxEntry {
   } | null;
   unread_count: number;
   last_activity: string;
+  // Whether the current user has muted notifications for this conversation.
+  muted: boolean;
 }
 
 // In-app notification (GET /api/notifications)

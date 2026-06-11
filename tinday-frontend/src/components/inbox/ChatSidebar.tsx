@@ -41,6 +41,7 @@ export function ChatSidebar({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
+  // Soft-deleted chats are already filtered out server-side (getInbox).
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return inbox.filter((entry) => {

@@ -468,6 +468,27 @@
             "type": "string",
             "format": "date-time",
             "description": "Timestamp of the latest message or match creation. Used for sorting."
+          },
+          "muted": {
+            "type": "boolean",
+            "description": "Whether the current user has muted notifications for this conversation"
+          }
+        }
+      },
+      "MatchUserState": {
+        "type": "object",
+        "description": "The current user's per-conversation inbox state.",
+        "properties": {
+          "match_id": { "type": "string", "format": "uuid" },
+          "muted": {
+            "type": "boolean",
+            "description": "Whether notifications for this conversation are muted"
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the conversation was soft-hidden, or null if visible. The chat reappears once newer activity arrives."
           }
         }
       },
@@ -1593,6 +1614,126 @@
                   "content": "Hey! Would love to connect about your AI projects.",
                   "read_at": null,
                   "created_at": "2026-06-05T13:30:00.000Z"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/messaging/matches/{matchId}/mute": {
+      "put": {
+        "tags": ["Messaging"],
+        "summary": "Mute or unmute a conversation",
+        "description": "Sets the authenticated user's mute preference for a match. Muting suppresses notifications (no notification row and no web push) for new messages in this conversation across all of the user's devices; messages still arrive and still count toward `unread_count`. Idempotent — the request carries the desired state. The user must be a member of the match (403 if not, 404 if it doesn't exist).",
+        "operationId": "setMatchMute",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "description": "UUID of the match",
+            "schema": { "type": "string", "format": "uuid" },
+            "example": "d4e5f6a7-b8c9-0123-defa-123456789012"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["muted"],
+                "properties": {
+                  "muted": {
+                    "type": "boolean",
+                    "description": "Desired mute state"
+                  }
+                }
+              },
+              "examples": {
+                "mute": { "summary": "Mute", "value": { "muted": true } },
+                "unmute": { "summary": "Unmute", "value": { "muted": false } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated conversation state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MatchUserState" },
+                "example": {
+                  "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                  "muted": true,
+                  "deleted_at": null
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/messaging/matches/{matchId}/hidden": {
+      "put": {
+        "tags": ["Messaging"],
+        "summary": "Hide (soft-delete) or restore a conversation",
+        "description": "Sets the authenticated user's soft-delete state for a match. Hiding (`hidden: true`) removes the conversation from the user's inbox without deleting the match or any messages; it reappears automatically once the other user sends a new message. Restoring (`hidden: false`) un-hides it immediately, supporting an Undo. Per-user and synced across devices. The user must be a member of the match (403 if not, 404 if it doesn't exist).",
+        "operationId": "setMatchHidden",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "matchId",
+            "in": "path",
+            "required": true,
+            "description": "UUID of the match",
+            "schema": { "type": "string", "format": "uuid" },
+            "example": "d4e5f6a7-b8c9-0123-defa-123456789012"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["hidden"],
+                "properties": {
+                  "hidden": {
+                    "type": "boolean",
+                    "description": "true to hide (delete) the chat, false to restore it"
+                  }
+                }
+              },
+              "examples": {
+                "delete": { "summary": "Delete chat", "value": { "hidden": true } },
+                "restore": { "summary": "Undo / restore", "value": { "hidden": false } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated conversation state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MatchUserState" },
+                "example": {
+                  "match_id": "d4e5f6a7-b8c9-0123-defa-123456789012",
+                  "muted": false,
+                  "deleted_at": "2026-06-11T10:00:00.000Z"
                 }
               }
             }

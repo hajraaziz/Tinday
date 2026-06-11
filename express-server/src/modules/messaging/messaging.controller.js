@@ -30,3 +30,27 @@ export const getInbox = async (req, res) => {
   const inbox = await messagingService.getInbox(req.user.id);
   res.json(inbox);
 };
+
+export const setMute = async (req, res) => {
+  const { matchId } = req.params;
+  const { muted } = req.body;
+
+  const state = await messagingService.setMatchMuted(
+    matchId,
+    req.user.id,
+    muted,
+  );
+  res.json(state);
+};
+
+export const setHidden = async (req, res) => {
+  const { matchId } = req.params;
+  const { hidden } = req.body;
+
+  const state = await messagingService.setMatchHidden(
+    matchId,
+    req.user.id,
+    hidden,
+  );
+  res.json(state);
+};
