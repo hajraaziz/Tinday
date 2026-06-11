@@ -6,7 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Search, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
-import { useNotifications } from "@/hooks/useNotifications";
+import {
+  useNotifications,
+  routeForNotification,
+  withNavNonce,
+} from "@/hooks/useNotifications";
 import { getInitials, formatRelativeTime, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { AppNotification } from "@/types";
@@ -42,7 +46,8 @@ export function TopNav() {
 
   const handleNotificationClick = (n: AppNotification) => {
     setNotificationPanel(false);
-    if (n.data?.matchId) router.push(`/inbox/${n.data.matchId}`);
+    const href = routeForNotification(n);
+    if (href) router.push(withNavNonce(href));
   };
 
   return (
@@ -144,7 +149,11 @@ export function TopNav() {
                         <div
                           className={cn(
                             "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                            n.type === "match" ? "bg-[#F59E0B]" : "bg-[#8478D4]"
+                            n.type === "match"
+                              ? "bg-[#F59E0B]"
+                              : n.type === "connect"
+                                ? "bg-[#22C55E]"
+                                : "bg-[#8478D4]"
                           )}
                         />
                         <div className="flex-1 min-w-0">

@@ -127,7 +127,7 @@ export interface InboxEntry {
 export interface AppNotification {
   id: string;
   user_id: string;
-  type: "match" | "message";
+  type: "match" | "message" | "connect";
   title: string;
   body: string | null;
   data: {
@@ -135,6 +135,7 @@ export interface AppNotification {
     otherUserId?: string;
     messageId?: string;
     senderId?: string;
+    giverId?: string;
     [key: string]: unknown;
   };
   read_at: string | null;

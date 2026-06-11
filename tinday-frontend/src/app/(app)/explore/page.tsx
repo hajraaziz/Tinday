@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { Suspense, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useExploreFeed } from "@/hooks/useExploreFeed";
+import { usePublicProfile } from "@/hooks/usePublicProfile";
 import { useRecordSwipe } from "@/hooks/useRecordSwipe";
 import { useAuthStore } from "@/store/authStore";
 import { FilterBar } from "@/components/explore/FilterBar";
@@ -21,7 +23,7 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
-export default function ExplorePage() {
+function ExploreInner() {
   const [selectedExperience, setSelectedExperience] = useState<string | null>(
     null
   );
@@ -44,6 +46,15 @@ export default function ExplorePage() {
 
   const { data: profiles = [], isLoading } = useExploreFeed(filterParams);
   const recordSwipe = useRecordSwipe();
+
+  // Arriving from a "wants to connect" notification: ?connect=<giverId> surfaces
+  // that person's card first so the user can swipe right back (→ match) or pass.
+  const searchParams = useSearchParams();
+  const connectId = searchParams.get("connect") ?? undefined;
+  // Per-click nonce (see withNavNonce): lets a repeat tap of the same connection
+  // re-surface the card even though `connect` is unchanged.
+  const focusNonce = searchParams.get("t") ?? "";
+  const { data: focusProfile } = usePublicProfile(connectId);
 
   // Skill options: seed from the user's own skills + what they're looking for,
   // unioned with skills present in the current feed and any already selected
@@ -69,6 +80,13 @@ export default function ExplorePage() {
     [recordSwipe]
   );
 
+  // Front-load the focused profile (deduped) when arriving from a connect
+  // notification; otherwise show the feed as-is.
+  const displayProfiles = useMemo(() => {
+    if (!focusProfile) return profiles;
+    return [focusProfile, ...profiles.filter((p) => p.id !== focusProfile.id)];
+  }, [focusProfile, profiles]);
+
   return (
     <div className="h-full flex flex-col">
       <div className="px-4 pt-4">
@@ -82,12 +100,23 @@ export default function ExplorePage() {
       </div>
 
       <CardCarousel
-        profiles={profiles}
+        key={connectId ? `${connectId}:${focusNonce}` : "feed"}
+        profiles={displayProfiles}
         onSwipe={handleSwipe}
         isLoading={isLoading}
       />
 
       <MatchOverlay />
     </div>
+  );
+}
+
+export default function ExplorePage() {
+  // useSearchParams requires a Suspense boundary (matches the repo's other
+  // search-param pages, e.g. reset-password).
+  return (
+    <Suspense fallback={null}>
+      <ExploreInner />
+    </Suspense>
   );
 }

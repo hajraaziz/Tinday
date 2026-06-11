@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   useMutation,
   useQuery,
@@ -12,6 +13,23 @@ import { useUIStore } from "@/store/uiStore";
 import type { AppNotification, NotificationsResponse } from "@/types";
 
 const KEY = ["notifications"];
+
+// Where a notification leads when tapped. A one-way "connect" notification
+// carries the swiper's id (giverId) and surfaces their card on explore; matches
+// and messages open the conversation. Keep in sync with TopNav's panel routing.
+export function routeForNotification(n: AppNotification): string | null {
+  if (n.data?.giverId) return `/explore?connect=${n.data.giverId}`;
+  if (n.data?.matchId) return `/inbox/${n.data.matchId}`;
+  return null;
+}
+
+// Append a unique nonce so re-clicking a notification re-navigates even when the
+// target URL is otherwise identical — Next treats a same-URL push as a no-op, so
+// without this the explore page wouldn't re-surface the card on a repeat click.
+export function withNavNonce(href: string): string {
+  const sep = href.includes("?") ? "&" : "?";
+  return `${href}${sep}t=${Date.now()}`;
+}
 
 // Merge freshly-arrived notifications into the cache, newest first, de-duped.
 function mergeNotifications(
@@ -78,6 +96,7 @@ export function useNotifications() {
 // immediately. Mount EXACTLY ONCE (in the app layout). Aborts on logout/unmount.
 export function useNotificationStream() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
@@ -113,7 +132,13 @@ export function useNotificationStream() {
         // Don't toast a message you're already looking at. (Muted chats never
         // reach here — the server skips notifications for them at the source.)
         if (n.type === "message" && n.data?.matchId === activeMatch) continue;
-        toast(n.title, { description: n.body ?? undefined });
+        const href = routeForNotification(n);
+        toast(n.title, {
+          description: n.body ?? undefined,
+          action: href
+            ? { label: "View", onClick: () => router.push(withNavNonce(href)) }
+            : undefined,
+        });
       }
     };
 
@@ -140,5 +165,5 @@ export function useNotificationStream() {
       stopped = true;
       controller.abort();
     };
-  }, [isAuthenticated, queryClient]);
+  }, [isAuthenticated, queryClient, router]);
 }

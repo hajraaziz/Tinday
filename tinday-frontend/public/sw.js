@@ -11,6 +11,8 @@ self.addEventListener("activate", (event) => {
 });
 
 function routeFor(data) {
+  // One-way connect notifications carry the swiper's id and no matchId yet.
+  if (data && data.giverId) return `/explore?connect=${data.giverId}`;
   if (data && data.matchId) return `/inbox/${data.matchId}`;
   return "/";
 }
@@ -24,8 +26,12 @@ self.addEventListener("push", (event) => {
   }
 
   const data = payload.data || {};
-  // Collapse repeated notifications from the same conversation/match.
-  const tag = data.matchId ? `match:${data.matchId}` : payload.type || "tinday";
+  // Collapse repeated notifications from the same conversation/match/swiper.
+  const tag = data.matchId
+    ? `match:${data.matchId}`
+    : data.giverId
+      ? `connect:${data.giverId}`
+      : payload.type || "tinday";
 
   event.waitUntil(
     self.registration.showNotification(payload.title || "Tinday", {

@@ -58,6 +58,11 @@ export const recordSwipe = async (giverId, receiverId, direction) => {
           console.error("Match notification failed:", err.message),
         );
       }
+    } else {
+      // No mutual swipe yet — notify the receiver of the one-way connection.
+      notifyConnect(giverId, receiverId).catch((err) =>
+        console.error("Connect notification failed:", err.message),
+      );
     }
   }
 
@@ -96,5 +101,23 @@ const notifyMatch = async (matchId, giverId, receiverId) => {
     title: "New match!",
     body: `You matched with ${nameOf(receiverId)}.`,
     data: { matchId, otherUserId: receiverId },
+  });
+};
+
+// Notify the receiver that someone swiped right on them (one-way, pre-match).
+const notifyConnect = async (giverId, receiverId) => {
+  const { data: giver } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", giverId)
+    .single();
+
+  const name = giver?.name || "Someone";
+
+  createNotification(receiverId, {
+    type: "connect",
+    title: "New connection",
+    body: `${name} wants to connect with you.`,
+    data: { giverId }, // no matchId yet — drives /explore?connect=giverId routing
   });
 };
