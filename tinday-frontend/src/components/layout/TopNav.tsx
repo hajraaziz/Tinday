@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Search, X } from "lucide-react";
@@ -15,13 +15,28 @@ import { getInitials, formatRelativeTime, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { AppNotification } from "@/types";
 
+type NotificationTab = "all" | "match" | "connect" | "message";
+
+const NOTIFICATION_TABS: { label: string; value: NotificationTab }[] = [
+  { label: "All", value: "all" },
+  { label: "Matches", value: "match" },
+  { label: "Connections", value: "connect" },
+  { label: "Messages", value: "message" },
+];
+
 export function TopNav() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
   const { notificationPanelOpen, setNotificationPanel } = useUIStore();
   const panelRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<NotificationTab>("all");
 
   const { notifications, unreadCount, markAllRead } = useNotifications();
+
+  const visibleNotifications =
+    activeTab === "all"
+      ? notifications
+      : notifications.filter((n) => n.type === activeTab);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -128,15 +143,37 @@ export function TopNav() {
                 </button>
               </div>
 
+              <div className="flex items-center gap-2 px-5 py-3 overflow-x-auto border-b border-[rgba(132,120,212,0.08)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {NOTIFICATION_TABS.map((tab) => (
+                  <motion.button
+                    key={tab.value}
+                    onClick={() => setActiveTab(tab.value)}
+                    whileTap={{ scale: 0.95 }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 border whitespace-nowrap",
+                      activeTab === tab.value
+                        ? "bg-[rgba(132,120,212,0.15)] border-[#8478D4] text-[#8478D4]"
+                        : "bg-[rgba(132,120,212,0.05)] border-[rgba(132,120,212,0.1)] text-[#9CA3AF] hover:text-white hover:border-[rgba(132,120,212,0.2)]"
+                    )}
+                  >
+                    {tab.label}
+                  </motion.button>
+                ))}
+              </div>
+
               <div className="max-h-[400px] overflow-y-auto">
-                {notifications.length === 0 ? (
+                {visibleNotifications.length === 0 ? (
                   <div className="px-5 py-10 text-center">
                     <p className="text-sm text-[#9CA3AF]">
-                      You&apos;re all caught up.
+                      {activeTab === "all"
+                        ? "You're all caught up."
+                        : `No ${NOTIFICATION_TABS.find(
+                            (t) => t.value === activeTab
+                          )?.label.toLowerCase()} yet.`}
                     </p>
                   </div>
                 ) : (
-                  notifications.map((n) => (
+                  visibleNotifications.map((n) => (
                     <button
                       key={n.id}
                       onClick={() => handleNotificationClick(n)}
