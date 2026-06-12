@@ -73,6 +73,8 @@ type StepData = {
   avatarFile: File | null;
   avatarPreview: string | null;
   about: string;
+  country: string;
+  city: string;
   experienceYears: number | null;
   skills: string[];
   roles: string[];
@@ -97,6 +99,8 @@ export default function OnboardingPage() {
     avatarFile: null,
     avatarPreview: null,
     about: "",
+    country: "",
+    city: "",
     experienceYears: null,
     skills: [],
     roles: [],
@@ -182,6 +186,9 @@ export default function OnboardingPage() {
       const profilePayload: Record<string, unknown> = {};
       if (data.name) profilePayload.name = data.name;
       if (data.about) profilePayload.about = data.about;
+      const locationParts = [data.city.trim(), data.country.trim()].filter(Boolean);
+      if (locationParts.length > 0)
+        profilePayload.location = locationParts.join(", ");
       if (data.experienceYears !== null)
         profilePayload.experience_years = data.experienceYears;
       if (data.skills.length > 0) profilePayload.skills = data.skills;
@@ -534,6 +541,42 @@ export default function OnboardingPage() {
                       border: "1px solid rgba(132,120,212,0.1)",
                     }}
                   />
+                </div>
+
+                {/* Location */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-[#9CA3AF] mb-1.5">
+                      Country
+                    </label>
+                    <input
+                      value={data.country}
+                      onChange={(e) => update({ country: e.target.value })}
+                      type="text"
+                      placeholder="Germany"
+                      className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30"
+                      style={{
+                        background: "#161222",
+                        border: "1px solid rgba(132,120,212,0.1)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[#9CA3AF] mb-1.5">
+                      City
+                    </label>
+                    <input
+                      value={data.city}
+                      onChange={(e) => update({ city: e.target.value })}
+                      type="text"
+                      placeholder="Berlin"
+                      className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30"
+                      style={{
+                        background: "#161222",
+                        border: "1px solid rgba(132,120,212,0.1)",
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Experience */}
