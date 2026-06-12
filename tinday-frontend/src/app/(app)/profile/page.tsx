@@ -1,18 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, useMotionValue } from "framer-motion";
-import { Settings, LogOut, Share2, MapPin } from "lucide-react";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Settings,
+  LogOut,
+  Share2,
+  MoreHorizontal,
+  Eye,
+  Pencil,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useOwnProfile } from "@/hooks/useOwnProfile";
 import { useUploadAvatar } from "@/hooks/useUploadAvatar";
 import { useMatches } from "@/hooks/useMatches";
 import { useAuthStore } from "@/store/authStore";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
-import { StatCounter } from "@/components/profile/StatCounter";
-import { ProfileBody } from "@/components/profile/ProfileBody";
+import { IntroCard } from "@/components/profile/IntroCard";
+import { AboutCard } from "@/components/profile/AboutCard";
+import { ProjectsCard } from "@/components/profile/ProjectsCard";
+import { LookingForCard } from "@/components/profile/LookingForCard";
 import { EditProfileDialog } from "@/components/profile/EditProfileDialog";
 import { MatchesModal } from "@/components/profile/MatchesModal";
+import { ProfileCardModal } from "@/components/profile/ProfileCardModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -25,23 +42,14 @@ function asStringArray(value: unknown): string[] {
 export default function ProfilePage() {
   const router = useRouter();
   const storedProfile = useAuthStore((s) => s.profile);
+  const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { data, isLoading, isError, refetch } = useOwnProfile();
   const { data: matches = [] } = useMatches();
   const uploadAvatar = useUploadAvatar();
   const [editOpen, setEditOpen] = useState(false);
   const [matchesOpen, setMatchesOpen] = useState(false);
-
-  // Cover parallax — the scroll container is the app shell's <main>, not the
-  // window, so we drive a motion value off its scrollTop at 30% speed.
-  const coverY = useMotionValue(0);
-  useEffect(() => {
-    const scroller = document.querySelector("main");
-    if (!scroller) return;
-    const onScroll = () => coverY.set(scroller.scrollTop * 0.3);
-    scroller.addEventListener("scroll", onScroll, { passive: true });
-    return () => scroller.removeEventListener("scroll", onScroll);
-  }, [coverY]);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const profile = data ?? storedProfile;
 
@@ -57,9 +65,7 @@ export default function ProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
         <p className="text-[#9CA3AF]">
-          {isError
-            ? "We couldn't load your profile."
-            : "No profile found."}
+          {isError ? "We couldn't load your profile." : "No profile found."}
         </p>
         <Button
           onClick={() => refetch()}
@@ -74,6 +80,10 @@ export default function ProfilePage() {
   const prefs = (profile.preferences ?? {}) as Record<string, unknown>;
   const primaryRole = profile.roles?.[0];
   const matchCount = matches.length;
+  const connectNote =
+    typeof prefs.connect_note === "string"
+      ? (prefs.connect_note as string)
+      : "";
 
   const handleShare = async () => {
     const url = `${window.location.origin}/profile/${profile.id}`;
@@ -86,140 +96,139 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-full pb-12">
-      {/* Cover */}
-      <div className="relative h-[200px] overflow-hidden">
-        <motion.div
-          style={{ y: coverY }}
-          className="absolute inset-0 -top-16 bottom-0"
-        >
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(135deg, #1B1535 0%, #2D1B4E 50%, #151515 100%)",
-            }}
-          />
-          <div
-            className="absolute top-1/2 left-1/2 w-[420px] h-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(132,120,212,0.35) 0%, transparent 70%)",
-            }}
-          />
-        </motion.div>
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#151515] to-transparent" />
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4">
-        {/* Avatar overlapping cover */}
-        <div className="-mt-12 flex items-end justify-between">
-          <AvatarUpload
-            currentUrl={profile.avatar_url}
-            name={profile.name}
-            onUpload={(file) =>
-              uploadAvatar.mutate(file, {
-                onSuccess: () => toast.success("Photo updated"),
-                onError: () => toast.error("Upload failed. Try again."),
-              })
-            }
-            isUploading={uploadAvatar.isPending}
-          />
-        </div>
-
-        {/* Identity */}
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: {},
-            show: { transition: { staggerChildren: 0.08 } },
-          }}
-          className="mt-4"
-        >
-          {[
-            <h1
-              key="name"
-              className="text-[28px] leading-tight font-semibold text-white font-[family-name:var(--font-display)]"
-            >
-              {profile.name}
-            </h1>,
-            primaryRole ? (
-              <p key="role" className="text-sm text-[#9CA3AF] mt-1">
-                {primaryRole}
-              </p>
-            ) : null,
-            <div key="loc" className="flex items-center gap-3 mt-2">
-              {profile.location && (
-                <span className="flex items-center gap-1 text-xs text-[#9CA3AF]">
-                  <MapPin className="w-3.5 h-3.5 text-[#8478D4]" />
-                  {profile.location}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
-                <span className="text-xs text-[#4B5563]">Available to connect</span>
-              </span>
-            </div>,
-          ]
-            .filter(Boolean)
-            .map((child, i) => (
-              <motion.div
-                key={i}
-                variants={{
-                  hidden: { opacity: 0, y: 8 },
-                  show: { opacity: 1, y: 0 },
+    <div className="min-h-full pb-12 pt-6">
+      <div className="max-w-5xl mx-auto px-4 space-y-5">
+        {/* Top row — profile-pic card + Intro */}
+        <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
+          {/* Hero card */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="rounded-2xl overflow-hidden bg-[#1C1829] border border-[rgba(132,120,212,0.1)]"
+          >
+            {/* Cover */}
+            <div className="relative h-[140px] overflow-hidden">
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #1B1535 0%, #2D1B4E 50%, #151515 100%)",
                 }}
-              >
-                {child}
-              </motion.div>
-            ))}
-        </motion.div>
+              />
+              <div
+                className="absolute top-1/2 left-1/2 w-[360px] h-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(132,120,212,0.35) 0%, transparent 70%)",
+                }}
+              />
 
-        {/* Action row */}
-        <div className="flex items-center gap-3 mt-5">
-          <Button
-            onClick={() => setEditOpen(true)}
-            variant="outline"
-            className="flex-1 border-[rgba(132,120,212,0.3)] bg-transparent text-white hover:bg-[rgba(132,120,212,0.08)] hover:text-white"
-          >
-            Edit Profile
-          </Button>
-          <Button
-            onClick={handleShare}
-            variant="outline"
-            className="border-[rgba(132,120,212,0.3)] bg-transparent text-[#8478D4] hover:bg-[rgba(132,120,212,0.08)] hover:text-[#8478D4]"
-          >
-            <Share2 className="w-4 h-4" />
-            Share Profile
-          </Button>
-        </div>
+              {/* Three-dot menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/40 transition-all outline-none data-[state=open]:bg-black/50 data-[state=open]:text-white"
+                    aria-label="Profile options"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-48 bg-[#1A1726] border-[rgba(132,120,212,0.12)] text-white"
+                >
+                  <DropdownMenuItem
+                    onClick={() => setPreviewOpen(true)}
+                    className="cursor-pointer focus:bg-[rgba(132,120,212,0.12)] focus:text-white"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Preview profile card
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleShare}
+                    className="cursor-pointer focus:bg-[rgba(132,120,212,0.12)] focus:text-white"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Share profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-[rgba(132,120,212,0.12)]" />
+                  <DropdownMenuItem
+                    onClick={() => setEditOpen(true)}
+                    className="cursor-pointer focus:bg-[rgba(132,120,212,0.12)] focus:text-white"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit profile
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-        {/* Stats */}
-        <div className="mt-6 mb-2 py-4 rounded-2xl bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
-          <button
-            type="button"
-            onClick={() => setMatchesOpen(true)}
-            className="w-full flex justify-center cursor-pointer transition-opacity hover:opacity-80"
-          >
-            <StatCounter value={matchCount} label="Matches" />
-          </button>
-        </div>
+            <div className="px-5 pb-5">
+              {/* Avatar overlapping the cover */}
+              <div className="-mt-12">
+                <AvatarUpload
+                  currentUrl={profile.avatar_url}
+                  name={profile.name}
+                  onUpload={(file) =>
+                    uploadAvatar.mutate(file, {
+                      onSuccess: () => toast.success("Photo updated"),
+                      onError: () => toast.error("Upload failed. Try again."),
+                    })
+                  }
+                  isUploading={uploadAvatar.isPending}
+                />
+              </div>
 
-        {/* Content cards */}
-        <div className="mt-4">
-          <ProfileBody
-            data={profile}
+              {/* Identity */}
+              <div className="mt-4">
+                <h1 className="text-[28px] leading-tight font-semibold text-white font-[family-name:var(--font-display)]">
+                  {profile.name}
+                </h1>
+                {primaryRole && (
+                  <p className="text-sm text-[#9CA3AF] mt-1">{primaryRole}</p>
+                )}
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Intro */}
+          <IntroCard
+            socials={profile.socials}
+            email={user?.email}
+            location={profile.location}
+            role={primaryRole}
+            experienceYears={profile.experience_years}
+            matchCount={matchCount}
+            onMatchesClick={() => setMatchesOpen(true)}
             onEdit={() => setEditOpen(true)}
-            lookingFor={{
-              skills: asStringArray(prefs.preferred_skills),
-              roles: asStringArray(prefs.preferred_roles),
-            }}
           />
         </div>
+
+        {/* About */}
+        <AboutCard
+          about={profile.about}
+          skills={profile.skills ?? []}
+          roles={profile.roles ?? []}
+          onEdit={() => setEditOpen(true)}
+        />
+
+        {/* Projects */}
+        <ProjectsCard
+          projects={profile.projects ?? []}
+          onEdit={() => setEditOpen(true)}
+        />
+
+        {/* Looking For */}
+        <LookingForCard
+          connectNote={connectNote}
+          preferredSkills={asStringArray(prefs.preferred_skills)}
+          preferredRoles={asStringArray(prefs.preferred_roles)}
+          onEdit={() => setEditOpen(true)}
+        />
 
         {/* Settings links — mobile only; desktop uses the sidebar footer */}
-        <div className="md:hidden mt-6 rounded-2xl overflow-hidden bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
+        <div className="md:hidden rounded-2xl overflow-hidden bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
           <button
             onClick={() => router.push("/settings")}
             className="w-full flex items-center gap-3 px-5 py-4 text-left text-white hover:bg-[rgba(132,120,212,0.04)] transition-colors border-b border-[rgba(132,120,212,0.06)]"
@@ -247,6 +256,12 @@ export default function ProfilePage() {
         matches={matches}
         open={matchesOpen}
         onOpenChange={setMatchesOpen}
+      />
+
+      <ProfileCardModal
+        profile={profile}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
       />
     </div>
   );

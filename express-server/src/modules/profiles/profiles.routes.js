@@ -15,6 +15,17 @@ const updateProfileSchema = z.object({
   roles: z.array(z.string()).optional(),
   projects: z.array(z.any()).optional(),
   preferences: z.any().optional(),
+  socials: z
+    .object({
+      phone: z.string(),
+      website: z.string(),
+      linkedin: z.string(),
+      instagram: z.string(),
+      github: z.string(),
+      twitter: z.string(),
+    })
+    .partial()
+    .optional(),
 });
 
 router.use(authenticate);

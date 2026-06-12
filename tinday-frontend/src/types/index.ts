@@ -22,6 +22,16 @@ export interface AuthResponse {
   user: User;
 }
 
+// Contact + social links shown on the profile rail. Stored in profiles.socials.
+export interface Socials {
+  phone?: string;
+  website?: string;
+  linkedin?: string;
+  instagram?: string;
+  github?: string;
+  twitter?: string;
+}
+
 // Matches OpenAPI: Profile schema (own profile — includes preferences)
 export interface Profile {
   id: string;
@@ -34,6 +44,7 @@ export interface Profile {
   roles: string[];
   projects: Project[];
   preferences: Record<string, unknown>;
+  socials: Socials | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +72,7 @@ export interface UpdateProfileRequest {
   roles?: string[];
   projects?: Project[];
   preferences?: Record<string, unknown>;
+  socials?: Socials;
 }
 
 export interface Project {

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { TagInput } from "./TagInput";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
-import type { Profile, Project, UpdateProfileRequest } from "@/types";
+import type { Profile, Project, Socials, UpdateProfileRequest } from "@/types";
 
 const SKILL_SUGGESTIONS = [
   "JavaScript",
@@ -66,8 +66,15 @@ export function EditProfileDialog({
   const updateProfile = useUpdateProfile();
 
   const prefs = (profile.preferences ?? {}) as Record<string, unknown>;
+  const socials = (profile.socials ?? {}) as Socials;
   const [name, setName] = useState(profile.name ?? "");
   const [location, setLocation] = useState(profile.location ?? "");
+  const [phone, setPhone] = useState(socials.phone ?? "");
+  const [website, setWebsite] = useState(socials.website ?? "");
+  const [linkedin, setLinkedin] = useState(socials.linkedin ?? "");
+  const [instagram, setInstagram] = useState(socials.instagram ?? "");
+  const [github, setGithub] = useState(socials.github ?? "");
+  const [twitter, setTwitter] = useState(socials.twitter ?? "");
   const [about, setAbout] = useState(profile.about ?? "");
   const [experienceYears, setExperienceYears] = useState<number>(
     profile.experience_years ?? 0
@@ -81,10 +88,8 @@ export function EditProfileDialog({
   const [preferredRoles, setPreferredRoles] = useState<string[]>(
     asStringArray(prefs.preferred_roles)
   );
-  const [preferredExperience, setPreferredExperience] = useState<number | null>(
-    typeof prefs.preferred_experience === "number"
-      ? (prefs.preferred_experience as number)
-      : null
+  const [connectNote, setConnectNote] = useState<string>(
+    typeof prefs.connect_note === "string" ? (prefs.connect_note as string) : ""
   );
 
   const updateProject = (index: number, patch: Partial<Project>) => {
@@ -104,19 +109,36 @@ export function EditProfileDialog({
       (p) => (p.title && p.title.trim()) || (p.description && p.description.trim())
     );
 
+    // Drop the deprecated preferred_experience key when re-saving preferences.
+    const { preferred_experience: _omitExp, ...restPrefs } = prefs;
+    void _omitExp;
+
+    // Keep only non-empty social links.
+    const cleanedSocials = Object.fromEntries(
+      Object.entries({
+        phone: phone.trim(),
+        website: website.trim(),
+        linkedin: linkedin.trim(),
+        instagram: instagram.trim(),
+        github: github.trim(),
+        twitter: twitter.trim(),
+      }).filter(([, v]) => v !== "")
+    ) as Socials;
+
     const body: UpdateProfileRequest = {
       name: name.trim(),
       location: location.trim(),
+      socials: cleanedSocials,
       about: about.trim(),
       experience_years: experienceYears,
       skills,
       roles,
       projects: cleanedProjects,
       preferences: {
-        ...prefs,
+        ...restPrefs,
         preferred_skills: preferredSkills,
         preferred_roles: preferredRoles,
-        preferred_experience: preferredExperience,
+        connect_note: connectNote.trim(),
       },
     };
 
@@ -165,6 +187,61 @@ export function EditProfileDialog({
               className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
               style={inputStyle}
             />
+          </div>
+
+          {/* Contact & Links */}
+          <div className="space-y-3">
+            <label className="block text-sm text-[#9CA3AF]">Contact &amp; Links</label>
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                type="tel"
+                placeholder="Phone"
+                className="w-full rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+              <input
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                type="url"
+                placeholder="Website"
+                className="w-full rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+              <input
+                value={linkedin}
+                onChange={(e) => setLinkedin(e.target.value)}
+                type="url"
+                placeholder="LinkedIn"
+                className="w-full rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+              <input
+                value={github}
+                onChange={(e) => setGithub(e.target.value)}
+                type="url"
+                placeholder="GitHub"
+                className="w-full rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+              <input
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                type="text"
+                placeholder="Instagram"
+                className="w-full rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+              <input
+                value={twitter}
+                onChange={(e) => setTwitter(e.target.value)}
+                type="text"
+                placeholder="Twitter / X"
+                className="w-full rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* About */}
@@ -295,6 +372,19 @@ export function EditProfileDialog({
           {/* Preferences */}
           <div className="pt-2 border-t border-[rgba(132,120,212,0.08)] space-y-6">
             <p className="text-sm font-medium text-white">Looking For</p>
+            <div>
+              <label className="block text-sm text-[#9CA3AF] mb-1.5">
+                Who do you want to connect with?
+              </label>
+              <textarea
+                value={connectNote}
+                onChange={(e) => setConnectNote(e.target.value)}
+                rows={3}
+                placeholder="Describe who you want to connect with"
+                className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none resize-none focus:ring-2 focus:ring-[#8478D4]/30"
+                style={inputStyle}
+              />
+            </div>
             <TagInput
               label="Preferred skills"
               value={preferredSkills}
@@ -310,39 +400,6 @@ export function EditProfileDialog({
               variant="muted"
               suggestions={ROLE_SUGGESTIONS}
             />
-            <div>
-              <label className="block text-sm text-[#9CA3AF] mb-1.5">
-                Preferred experience level
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {EXPERIENCE_OPTIONS.map((years) => (
-                  <button
-                    key={years}
-                    type="button"
-                    onClick={() =>
-                      setPreferredExperience(
-                        preferredExperience === years ? null : years
-                      )
-                    }
-                    className="px-4 py-2 rounded-lg text-sm transition-all"
-                    style={{
-                      background:
-                        preferredExperience === years
-                          ? "rgba(132,120,212,0.12)"
-                          : "#221E30",
-                      border:
-                        preferredExperience === years
-                          ? "1px solid rgba(132,120,212,0.25)"
-                          : "1px solid transparent",
-                      color:
-                        preferredExperience === years ? "#8478D4" : "#9CA3AF",
-                    }}
-                  >
-                    {years}+ {years === 1 ? "year" : "years"}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
