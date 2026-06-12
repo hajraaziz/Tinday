@@ -12,6 +12,7 @@ import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { StatCounter } from "@/components/profile/StatCounter";
 import { ProfileBody } from "@/components/profile/ProfileBody";
 import { EditProfileDialog } from "@/components/profile/EditProfileDialog";
+import { MatchesModal } from "@/components/profile/MatchesModal";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const { data: matches = [] } = useMatches();
   const uploadAvatar = useUploadAvatar();
   const [editOpen, setEditOpen] = useState(false);
+  const [matchesOpen, setMatchesOpen] = useState(false);
 
   // Cover parallax — the scroll container is the app shell's <main>, not the
   // window, so we drive a motion value off its scrollTop at 30% speed.
@@ -194,10 +196,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mt-6 mb-2 py-4 rounded-2xl bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
-          <StatCounter value={matchCount} label="Connections" />
-          <StatCounter value={matchCount} label="Matches" />
-          <StatCounter value={0} label="Profile Views" />
+        <div className="mt-6 mb-2 py-4 rounded-2xl bg-[#1C1829] border border-[rgba(132,120,212,0.1)]">
+          <button
+            type="button"
+            onClick={() => setMatchesOpen(true)}
+            className="w-full flex justify-center cursor-pointer transition-opacity hover:opacity-80"
+          >
+            <StatCounter value={matchCount} label="Matches" />
+          </button>
         </div>
 
         {/* Content cards */}
@@ -235,6 +241,12 @@ export default function ProfilePage() {
         profile={profile}
         open={editOpen}
         onOpenChange={setEditOpen}
+      />
+
+      <MatchesModal
+        matches={matches}
+        open={matchesOpen}
+        onOpenChange={setMatchesOpen}
       />
     </div>
   );
