@@ -4,6 +4,8 @@ import type { PublicProfile } from "@/types";
 
 interface ExploreFeedParams {
   skills?: string[];
+  roles?: string[];
+  location?: string;
   min_experience?: number;
   max_experience?: number;
   limit?: number;

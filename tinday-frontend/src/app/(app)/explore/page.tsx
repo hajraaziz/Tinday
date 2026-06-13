@@ -28,21 +28,28 @@ function ExploreInner() {
     null
   );
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [location, setLocation] = useState("");
   const ownProfile = useAuthStore((s) => s.profile);
 
   const filterParams = useMemo(() => {
     const params: {
       skills?: string[];
+      roles?: string[];
+      location?: string;
       min_experience?: number;
       max_experience?: number;
     } = {};
     if (selectedSkills.length > 0) params.skills = selectedSkills;
+    if (selectedRoles.length > 0) params.roles = selectedRoles;
+    const trimmedLocation = location.trim();
+    if (trimmedLocation) params.location = trimmedLocation;
     if (selectedExperience && EXPERIENCE_RANGES[selectedExperience]) {
       params.min_experience = EXPERIENCE_RANGES[selectedExperience].min;
       params.max_experience = EXPERIENCE_RANGES[selectedExperience].max;
     }
     return params;
-  }, [selectedSkills, selectedExperience]);
+  }, [selectedSkills, selectedRoles, location, selectedExperience]);
 
   const { data: profiles = [], isLoading } = useExploreFeed(filterParams);
   const recordSwipe = useRecordSwipe();
@@ -73,6 +80,23 @@ function ExploreInner() {
       .slice(0, 30);
   }, [ownProfile, profiles, selectedSkills]);
 
+  // Role suggestions: seed from the user's own roles + roles present in the
+  // current feed + any already selected (so a selection never disappears as the
+  // feed narrows). Mirrors skillOptions above.
+  const roleOptions = useMemo(() => {
+    const prefs = (ownProfile?.preferences ?? {}) as Record<string, unknown>;
+    const set = new Set<string>([
+      ...(ownProfile?.roles ?? []),
+      ...asStringArray(prefs.preferred_roles),
+      ...profiles.flatMap((p) => p.roles ?? []),
+      ...selectedRoles,
+    ]);
+    return Array.from(set)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, 30);
+  }, [ownProfile, profiles, selectedRoles]);
+
   const handleSwipe = useCallback(
     (profile: PublicProfile, direction: "RIGHT" | "LEFT") => {
       recordSwipe.mutate({ receiver_id: profile.id, direction });
@@ -96,6 +120,11 @@ function ExploreInner() {
           selectedSkills={selectedSkills}
           onSkillsChange={setSelectedSkills}
           skillOptions={skillOptions}
+          selectedRoles={selectedRoles}
+          onRolesChange={setSelectedRoles}
+          roleOptions={roleOptions}
+          location={location}
+          onLocationChange={setLocation}
         />
       </div>
 

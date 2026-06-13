@@ -51,6 +51,15 @@ def get_recommendations(user_id: str, filters: dict, limit: int, exclude_ids: li
     skills = filters.get('skills') if filters else None
     skills_filter = skills if skills else None  # [] becomes None
 
+    # Same [] -> None guard for roles: an empty array would make
+    # `p.roles && '{}'` always FALSE and silently exclude every profile.
+    roles = filters.get('roles') if filters else None
+    roles_filter = roles if roles else None
+
+    # Free-text location: blank -> None so the SQL `IS NULL` short-circuits.
+    location = (filters.get('location') or '').strip() if filters else ''
+    location_filter = location or None
+
     min_exp = filters.get('min_experience') if filters else None
     max_exp = filters.get('max_experience') if filters else None
 
@@ -60,6 +69,8 @@ def get_recommendations(user_id: str, filters: dict, limit: int, exclude_ids: li
         'requesting_user_id': user_id,
         'exclude_ids': exclude_ids or [],
         'skills_filter': skills_filter,
+        'roles_filter': roles_filter,
+        'location_filter': location_filter,
         'min_exp': min_exp,
         'max_exp': max_exp,
         'result_limit': limit or 20

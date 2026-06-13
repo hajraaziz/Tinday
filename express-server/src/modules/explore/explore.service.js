@@ -14,26 +14,43 @@ export const getExploreFeed = async (userId, filters = {}) => {
   if (swipedError) throw swipedError;
   const excludeIds = (swiped || []).map((s) => s.receiver_id);
 
-  // 2. Call FastAPI /recommend
-  const recommendRes = await axios.post(
-    `${FASTAPI_URL}/recommend`,
-    {
-      user_id: userId,
-      filters: {
-        skills: filters.skills || [],
-        min_experience: filters.min_experience,
-        max_experience: filters.max_experience,
+  // 2. Call FastAPI /recommend for a ranked ordering. This is best-effort: the
+  // recommender is non-essential to *which* profiles are eligible, only to their
+  // ranking. Any failure (FastAPI down, RPC signature mismatch, etc.) must not
+  // blank out Explore — we catch it and fall back to a direct listing below.
+  let rankedIds = [];
+  try {
+    const recommendRes = await axios.post(
+      `${FASTAPI_URL}/recommend`,
+      {
+        user_id: userId,
+        filters: {
+          skills: filters.skills || [],
+          roles: filters.roles || [],
+          location: filters.location,
+          min_experience: filters.min_experience,
+          max_experience: filters.max_experience,
+        },
+        exclude_ids: excludeIds,
+        limit: filters.limit || 20,
       },
-      exclude_ids: excludeIds,
-      limit: filters.limit || 20,
-    },
-    { headers: { "X-Internal-Key": INTERNAL_SECRET } },
-  );
+      { headers: { "X-Internal-Key": INTERNAL_SECRET } },
+    );
+    rankedIds = recommendRes.data.ranked_user_ids || [];
+  } catch (err) {
+    console.error(
+      "[explore] /recommend failed, falling back to direct listing:",
+      err?.response?.data || err.message,
+    );
+  }
 
-  const rankedIds = recommendRes.data.ranked_user_ids;
-
-  if (!rankedIds || rankedIds.length === 0) {
-    return [];
+  // The recommender returns nothing when this user has no preference vector /
+  // embedding yet (e.g. brand-new accounts), when no other profile has an
+  // embedding to rank, or when the call failed above. Rather than leaving
+  // Explore empty, fall back to listing all other profiles directly (still
+  // honouring the active filters + exclusions).
+  if (rankedIds.length === 0) {
+    return fetchFallbackProfiles(userId, excludeIds, filters);
   }
 
   // 3. Fetch full profiles for the returned IDs
@@ -53,4 +70,41 @@ export const getExploreFeed = async (userId, filters = {}) => {
   }, {});
 
   return rankedIds.map((id) => profileMap[id]).filter((p) => !!p); // Filter out any profiles that might have been deleted in the interim
+};
+
+// Direct profile listing used when the recommender can't rank anyone. Mirrors
+// the match_profiles WHERE clauses (skills/roles overlap, location ILIKE,
+// experience range) so the fallback respects the same active filters.
+const fetchFallbackProfiles = async (userId, excludeIds, filters = {}) => {
+  let query = supabase
+    .from("profiles")
+    .select(
+      "id, name, avatar_url, about, location, experience_years, skills, roles, projects",
+    )
+    .neq("id", userId)
+    .order("created_at", { ascending: false })
+    .limit(filters.limit || 20);
+
+  if (excludeIds && excludeIds.length > 0) {
+    query = query.not("id", "in", `(${excludeIds.join(",")})`);
+  }
+  if (filters.skills && filters.skills.length > 0) {
+    query = query.overlaps("skills", filters.skills);
+  }
+  if (filters.roles && filters.roles.length > 0) {
+    query = query.overlaps("roles", filters.roles);
+  }
+  if (filters.location) {
+    query = query.ilike("location", `%${filters.location}%`);
+  }
+  if (filters.min_experience !== undefined) {
+    query = query.gte("experience_years", filters.min_experience);
+  }
+  if (filters.max_experience !== undefined) {
+    query = query.lte("experience_years", filters.max_experience);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
 };

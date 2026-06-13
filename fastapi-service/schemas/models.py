@@ -7,6 +7,8 @@ class EmbedRequest(BaseModel):
 
 class RecommendFilters(BaseModel):
     skills: Optional[List[str]] = None
+    roles: Optional[List[str]] = None
+    location: Optional[str] = None
     min_experience: Optional[int] = None
     max_experience: Optional[int] = None
 
