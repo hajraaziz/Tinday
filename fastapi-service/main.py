@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from config.supabase import supabase
 from config.settings import settings
 
-from routers import embed, recommend, chat, preference
+from routers import embed, recommend, chat, preference, validate
 
 app = FastAPI(title="Tinday AI Service")
 
@@ -12,6 +12,7 @@ app.include_router(embed.router, tags=["AI"])
 app.include_router(recommend.router, tags=["AI"])
 app.include_router(chat.router, tags=["AI"])
 app.include_router(preference.router, tags=["AI"])
+app.include_router(validate.router, tags=["AI"])
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

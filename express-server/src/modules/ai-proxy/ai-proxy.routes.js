@@ -23,6 +23,11 @@ const shareProfileSchema = z.object({
   profile_id: z.string().uuid(),
 });
 
+const validateTagSchema = z.object({
+  value: z.string().min(1),
+  kind: z.enum(["skill", "role"]),
+});
+
 router.use(authenticate);
 
 router.get("/recommend", aiProxyController.recommend);
@@ -31,6 +36,11 @@ router.post(
   "/share-profile",
   validate(shareProfileSchema),
   aiProxyController.shareProfile
+);
+router.post(
+  "/validate-tag",
+  validate(validateTagSchema),
+  aiProxyController.validateTag
 );
 
 export default router;

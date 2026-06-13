@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TagInput } from "./TagInput";
+import { validateTag } from "@/lib/validateTag";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import type { Profile, Project, Socials, UpdateProfileRequest } from "@/types";
 
@@ -171,6 +172,7 @@ export function EditProfileDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               type="text"
+              maxLength={50}
               className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none focus:ring-2 focus:ring-[#8478D4]/30"
               style={inputStyle}
             />
@@ -294,6 +296,8 @@ export function EditProfileDialog({
             onChange={setSkills}
             placeholder="Add a skill and press Enter"
             suggestions={SKILL_SUGGESTIONS}
+            validate={(v) => validateTag(v, "skill")}
+            kindLabel="skill"
           />
 
           {/* Roles */}
@@ -304,6 +308,8 @@ export function EditProfileDialog({
             placeholder="Add a role and press Enter"
             variant="muted"
             suggestions={ROLE_SUGGESTIONS}
+            validate={(v) => validateTag(v, "role")}
+            kindLabel="role"
           />
 
           {/* Projects */}
@@ -391,6 +397,8 @@ export function EditProfileDialog({
               onChange={setPreferredSkills}
               placeholder="Add a skill and press Enter"
               suggestions={SKILL_SUGGESTIONS}
+              validate={(v) => validateTag(v, "skill")}
+              kindLabel="skill"
             />
             <TagInput
               label="Preferred roles"
@@ -399,6 +407,8 @@ export function EditProfileDialog({
               placeholder="Add a role and press Enter"
               variant="muted"
               suggestions={ROLE_SUGGESTIONS}
+              validate={(v) => validateTag(v, "role")}
+              kindLabel="role"
             />
           </div>
         </div>

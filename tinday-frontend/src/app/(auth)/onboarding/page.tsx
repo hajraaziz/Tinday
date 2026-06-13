@@ -6,10 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera,
   ChevronLeft,
+  Loader2,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import { apiPost, apiPut } from "@/lib/api";
+import { validateTag } from "@/lib/validateTag";
 import { useAuthStore } from "@/store/authStore";
 import type { Profile } from "@/types";
 
@@ -111,6 +113,10 @@ export default function OnboardingPage() {
 
   const [skillInput, setSkillInput] = useState("");
   const [roleInput, setRoleInput] = useState("");
+  const [validatingSkill, setValidatingSkill] = useState(false);
+  const [validatingRole, setValidatingRole] = useState(false);
+  const [skillError, setSkillError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Route guard — wait for persisted auth to rehydrate first.
@@ -175,6 +181,47 @@ export default function OnboardingPage() {
 
   const removeRole = (role: string) => {
     update({ roles: data.roles.filter((r) => r !== role) });
+  };
+
+  // Typed (Enter) entries are AI-validated; suggestion chips use addSkill/addRole directly.
+  const addSkillTyped = async (skill: string) => {
+    const s = skill.trim();
+    if (!s || data.skills.includes(s)) {
+      setSkillInput("");
+      return;
+    }
+    setValidatingSkill(true);
+    setSkillError(null);
+    try {
+      const result = await validateTag(s, "skill");
+      if (!result.valid) {
+        setSkillError(`"${s}" doesn't look like a real skill.`);
+        return;
+      }
+      addSkill(result.normalized?.trim() || s);
+    } finally {
+      setValidatingSkill(false);
+    }
+  };
+
+  const addRoleTyped = async (role: string) => {
+    const r = role.trim();
+    if (!r || data.roles.includes(r)) {
+      setRoleInput("");
+      return;
+    }
+    setValidatingRole(true);
+    setRoleError(null);
+    try {
+      const result = await validateTag(r, "role");
+      if (!result.valid) {
+        setRoleError(`"${r}" doesn't look like a real role.`);
+        return;
+      }
+      addRole(result.normalized?.trim() || r);
+    } finally {
+      setValidatingRole(false);
+    }
   };
 
   const allRoles = [...new Set([...data.roles, ...(data.role ? [data.role] : [])])];
@@ -463,6 +510,7 @@ export default function OnboardingPage() {
                     value={data.name}
                     onChange={(e) => update({ name: e.target.value })}
                     type="text"
+                    maxLength={50}
                     placeholder="Sarah Chen"
                     className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30"
                     style={{
@@ -642,22 +690,33 @@ export default function OnboardingPage() {
                   <div className="relative">
                     <input
                       value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
+                      onChange={(e) => {
+                        setSkillInput(e.target.value);
+                        if (skillError) setSkillError(null);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          addSkill(skillInput);
+                          if (!validatingSkill) addSkillTyped(skillInput);
                         }
                       }}
                       type="text"
+                      disabled={validatingSkill}
                       placeholder="Type a skill and press Enter"
-                      className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30"
+                      className="w-full rounded-lg px-4 py-2.5 pr-10 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30 disabled:opacity-60"
                       style={{
                         background: "#161222",
                         border: "1px solid rgba(132,120,212,0.1)",
                       }}
                     />
+                    {validatingSkill && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8478D4] animate-spin" />
+                    )}
                   </div>
+
+                  {skillError && (
+                    <p className="text-xs text-[#EF4444] mt-1.5">{skillError}</p>
+                  )}
 
                   {/* Selected skills */}
                   {data.skills.length > 0 && (
@@ -717,22 +776,32 @@ export default function OnboardingPage() {
                   <div className="relative mb-3">
                     <input
                       value={roleInput}
-                      onChange={(e) => setRoleInput(e.target.value)}
+                      onChange={(e) => {
+                        setRoleInput(e.target.value);
+                        if (roleError) setRoleError(null);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          addRole(roleInput);
+                          if (!validatingRole) addRoleTyped(roleInput);
                         }
                       }}
                       type="text"
+                      disabled={validatingRole}
                       placeholder="Type a role and press Enter"
-                      className="w-full rounded-lg px-4 py-2.5 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30"
+                      className="w-full rounded-lg px-4 py-2.5 pr-10 text-white placeholder:text-[#4B5563] outline-none transition-colors focus:ring-2 focus:ring-[#8478D4]/30 disabled:opacity-60"
                       style={{
                         background: "#161222",
                         border: "1px solid rgba(132,120,212,0.1)",
                       }}
                     />
+                    {validatingRole && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8478D4] animate-spin" />
+                    )}
                   </div>
+                  {roleError && (
+                    <p className="text-xs text-[#EF4444] mb-3 -mt-1">{roleError}</p>
+                  )}
                   {data.roles.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {data.roles.map((role) => (

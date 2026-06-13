@@ -23,3 +23,9 @@ export const shareProfile = async (req, res) => {
   const analysis = await aiProxyService.shareProfile(req.user.id, profile_id);
   res.json(analysis);
 };
+
+export const validateTag = async (req, res) => {
+  const { value, kind } = req.body;
+  const result = await aiProxyService.validateTag(value, kind);
+  res.json(result);
+};

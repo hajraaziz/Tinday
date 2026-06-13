@@ -29,3 +29,7 @@ class ChatRequest(BaseModel):
     user_id: str
     message: str
     conversation_history: List[ChatMessage] = Field(default_factory=list)
+
+class ValidateTagRequest(BaseModel):
+    value: str
+    kind: str  # "skill" or "role"

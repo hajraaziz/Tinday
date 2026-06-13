@@ -75,6 +75,11 @@ export const chat = async (userId, message, conversationHistory, res) => {
   response.data.pipe(res);
 };
 
+export const validateTag = async (value, kind) => {
+  const response = await aiClient.post("/validate-tag", { value, kind });
+  return response.data;
+};
+
 export const shareProfile = async (userId, profileId) => {
   // 1. Fetch the profile to share
   const { data: profile, error } = await supabase
