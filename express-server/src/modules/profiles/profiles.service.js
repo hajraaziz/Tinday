@@ -90,7 +90,7 @@ export const uploadProjectMedia = async (userId, buffer, mimetype) => {
 export const getProfileById = async (userId) => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, avatar_url, about, location, experience_years, skills, roles, projects")
+    .select("id, name, avatar_url, about, location, experience_years, skills, roles, projects, preferences, socials")
     .eq("id", userId)
     .single();
 

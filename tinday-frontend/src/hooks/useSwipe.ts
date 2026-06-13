@@ -1,7 +1,7 @@
 "use client";
 
 import { useDrag } from "@use-gesture/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 interface SwipeState {
   x: number;
@@ -35,10 +35,16 @@ export function useSwipe({
     progress: 0,
   });
   const [isDragging, setIsDragging] = useState(false);
+  // Set true once a gesture moves beyond a tap; lets the card distinguish a
+  // tap (open detail) from a drag-release (the native click that follows a
+  // drag must be ignored). `filterTaps` keeps taps out of this handler.
+  const hasDraggedRef = useRef(false);
 
   const bind = useDrag(
     ({ active, movement: [mx], velocity: [vx], direction: [dx] }) => {
       if (!enabled) return;
+
+      if (active && Math.abs(mx) > 8) hasDraggedRef.current = true;
 
       const progress = Math.min(Math.abs(mx) / swipeThreshold, 1);
       const rotation = mx * 0.15; // rotation proportional to drag
@@ -125,5 +131,12 @@ export function useSwipe({
     progress: state.progress,
     isDragging,
     reset,
+    // Returns (and clears) whether the last gesture was a drag rather than a
+    // tap — call from the card's onClick to suppress the post-drag click.
+    wasDragged: () => {
+      const v = hasDraggedRef.current;
+      hasDraggedRef.current = false;
+      return v;
+    },
   };
 }

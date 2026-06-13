@@ -28,7 +28,7 @@ export function LookingForCard({
         <p className="text-sm leading-relaxed text-[#D1D5DB] whitespace-pre-wrap">
           {note}
         </p>
-      ) : (
+      ) : onEdit ? (
         <button
           type="button"
           onClick={onEdit}
@@ -36,7 +36,10 @@ export function LookingForCard({
         >
           Describe who you want to connect with
         </button>
-      )}
+      ) : !hasSkills && !hasRoles ? (
+        // Read-only view of another user with nothing shared here.
+        <p className="text-sm text-[#4B5563]">No preferences shared yet.</p>
+      ) : null}
 
       {(hasSkills || hasRoles) && (
         <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4 mt-4">

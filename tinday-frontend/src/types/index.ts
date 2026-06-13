@@ -49,7 +49,9 @@ export interface Profile {
   updated_at: string;
 }
 
-// Matches OpenAPI: PublicProfile schema (other users — no preferences)
+// Matches OpenAPI: PublicProfile schema (other users). `preferences` (Looking
+// For) and `socials` (contact links) are surfaced publicly so the Explore
+// detail panel can mirror the personal profile page.
 export interface PublicProfile {
   id: string;
   name: string;
@@ -60,6 +62,8 @@ export interface PublicProfile {
   skills: string[];
   roles: string[];
   projects: Project[];
+  preferences?: Record<string, unknown>;
+  socials?: Socials | null;
 }
 
 // Body for PUT /api/profiles/me — all fields optional (partial update)

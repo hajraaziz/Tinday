@@ -16,14 +16,16 @@ import {
 import type { Socials } from "@/types";
 
 interface IntroCardProps {
-  socials: Socials | null;
+  socials?: Socials | null;
   email?: string;
   location?: string | null;
   role?: string;
   experienceYears?: number;
-  matchCount: number;
-  onMatchesClick: () => void;
-  onEdit: () => void;
+  // Own-profile-only affordances. Omit for a read-only view of another user:
+  // the matches row, edit pencil and "add contact links" prompt are then hidden.
+  matchCount?: number;
+  onMatchesClick?: () => void;
+  onEdit?: () => void;
 }
 
 // Prefix a bare URL/handle so it becomes a valid href.
@@ -61,11 +63,12 @@ export function IntroCard({
       label: `${experienceYears} ${experienceYears === 1 ? "year" : "years"} of experience`,
     });
   if (location) rows.push({ icon: MapPin, label: location });
-  rows.push({
-    icon: Users,
-    label: `${matchCount} ${matchCount === 1 ? "match" : "matches"}`,
-    onClick: onMatchesClick,
-  });
+  if (matchCount !== undefined)
+    rows.push({
+      icon: Users,
+      label: `${matchCount} ${matchCount === 1 ? "match" : "matches"}`,
+      onClick: onMatchesClick,
+    });
   if (email) rows.push({ icon: Mail, label: email });
   if (s.phone) rows.push({ icon: Phone, label: s.phone, href: `tel:${s.phone}` });
   if (s.website)
@@ -111,14 +114,16 @@ export function IntroCard({
         <h3 className="text-sm font-semibold tracking-wide text-[#9CA3AF] uppercase">
           Intro
         </h3>
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label="Edit intro"
-          className="text-[#4B5563] hover:text-[#8478D4] transition-colors"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label="Edit intro"
+            className="text-[#4B5563] hover:text-[#8478D4] transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="space-y-2.5">
@@ -170,7 +175,7 @@ export function IntroCard({
           );
         })}
 
-        {!hasContactLinks && (
+        {onEdit && !hasContactLinks && (
           <button
             type="button"
             onClick={onEdit}

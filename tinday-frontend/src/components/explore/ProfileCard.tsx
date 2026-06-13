@@ -68,7 +68,10 @@ export function ProfileCard({
         }}
       />
 
-      <button className="absolute top-3.5 left-3.5 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/60 hover:text-white transition-colors z-10">
+      <button
+        onClick={(e) => e.stopPropagation()}
+        className="absolute top-3.5 left-3.5 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/60 hover:text-white transition-colors z-10"
+      >
         <Share2 className="w-4 h-4" />
       </button>
 

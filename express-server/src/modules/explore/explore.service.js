@@ -57,7 +57,7 @@ export const getExploreFeed = async (userId, filters = {}) => {
   const { data: profiles, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, name, avatar_url, about, location, experience_years, skills, roles, projects",
+      "id, name, avatar_url, about, location, experience_years, skills, roles, projects, preferences, socials",
     )
     .in("id", rankedIds);
 
@@ -79,7 +79,7 @@ const fetchFallbackProfiles = async (userId, excludeIds, filters = {}) => {
   let query = supabase
     .from("profiles")
     .select(
-      "id, name, avatar_url, about, location, experience_years, skills, roles, projects",
+      "id, name, avatar_url, about, location, experience_years, skills, roles, projects, preferences, socials",
     )
     .neq("id", userId)
     .order("created_at", { ascending: false })

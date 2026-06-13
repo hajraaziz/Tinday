@@ -1,17 +1,25 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProfileCard } from "./ProfileCard";
 import { SwipeActions } from "./SwipeActions";
 import { useSwipe } from "@/hooks/useSwipe";
+import { cn } from "@/lib/utils";
 import type { PublicProfile } from "@/types";
 
 interface CardCarouselProps {
   profiles: PublicProfile[];
   onSwipe: (profile: PublicProfile, direction: "RIGHT" | "LEFT") => void;
   isLoading?: boolean;
+  // Tap (not drag) on the active card — used to open the detail split view.
+  onCardClick?: (profile: PublicProfile) => void;
+  // Fires whenever the active card changes (swipe, prev/next, filter reset),
+  // so a synced detail panel can follow the current profile.
+  onCurrentChange?: (profile: PublicProfile | null) => void;
+  // Narrower layout for when the carousel shares the screen with a detail panel.
+  compact?: boolean;
 }
 
 function SkeletonCard() {
@@ -37,6 +45,9 @@ export function CardCarousel({
   profiles,
   onSwipe,
   isLoading,
+  onCardClick,
+  onCurrentChange,
+  compact,
 }: CardCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   // Direction the leaving card flies off toward (drives the exit animation).
@@ -50,6 +61,12 @@ export function CardCarousel({
     setPrevCount(profiles.length);
     setCurrentIndex(0);
   }
+
+  // Report the active profile so a synced detail panel can follow it. Covers
+  // every change path (swipe, prev/next, filter reset, empty feed).
+  useEffect(() => {
+    onCurrentChange?.(profiles[currentIndex] ?? null);
+  }, [currentIndex, profiles, onCurrentChange]);
 
   const advance = useCallback(() => {
     if (profiles.length === 0) return;
@@ -121,7 +138,12 @@ export function CardCarousel({
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center">
-      <div className="relative flex items-center justify-center w-full max-w-2xl mx-auto h-[32rem] flex-shrink-0">
+      <div
+        className={cn(
+          "relative flex items-center justify-center w-full mx-auto h-[32rem] flex-shrink-0 transition-[max-width] duration-300 ease-out",
+          compact ? "max-w-sm" : "max-w-2xl"
+        )}
+      >
         <button
           onClick={retreat}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
@@ -153,7 +175,15 @@ export function CardCarousel({
             }
             style={{ zIndex: 10 }}
           >
-            <div {...swipe.bind()} style={{ touchAction: "pan-y" }}>
+            <div
+              {...swipe.bind()}
+              onClick={() => {
+                // Ignore the synthetic click that follows a drag-release.
+                if (swipe.wasDragged()) return;
+                onCardClick?.(profile);
+              }}
+              style={{ touchAction: "pan-y" }}
+            >
               <ProfileCard
                 profile={profile}
                 index={currentIndex}

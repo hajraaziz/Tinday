@@ -2,13 +2,16 @@
 
 import { Suspense, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useExploreFeed } from "@/hooks/useExploreFeed";
 import { usePublicProfile } from "@/hooks/usePublicProfile";
 import { useRecordSwipe } from "@/hooks/useRecordSwipe";
 import { useAuthStore } from "@/store/authStore";
 import { FilterBar } from "@/components/explore/FilterBar";
 import { CardCarousel } from "@/components/explore/CardCarousel";
+import { ExploreDetailPanel } from "@/components/explore/ExploreDetailPanel";
 import { MatchOverlay } from "@/components/explore/MatchOverlay";
+import { cn } from "@/lib/utils";
 import type { PublicProfile } from "@/types";
 
 const EXPERIENCE_RANGES: Record<string, { min: number; max: number }> = {
@@ -53,6 +56,13 @@ function ExploreInner() {
 
   const { data: profiles = [], isLoading } = useExploreFeed(filterParams);
   const recordSwipe = useRecordSwipe();
+
+  // Master-detail split: tapping a card opens a detail panel that stays synced
+  // to the carousel's current card.
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [currentProfile, setCurrentProfile] = useState<PublicProfile | null>(
+    null
+  );
 
   // Arriving from a "wants to connect" notification: ?connect=<giverId> surfaces
   // that person's card first so the user can swipe right back (→ match) or pass.
@@ -111,29 +121,71 @@ function ExploreInner() {
     return [focusProfile, ...profiles.filter((p) => p.id !== focusProfile.id)];
   }, [focusProfile, profiles]);
 
+  // Filter controls. Sits globally beneath the header in full-width mode, but
+  // relocates into the left (Master) column when the split view is open so it
+  // never stretches across the Detail panel.
+  const filterBar = (
+    <FilterBar
+      selectedExperience={selectedExperience}
+      onExperienceChange={setSelectedExperience}
+      selectedSkills={selectedSkills}
+      onSkillsChange={setSelectedSkills}
+      skillOptions={skillOptions}
+      selectedRoles={selectedRoles}
+      onRolesChange={setSelectedRoles}
+      roleOptions={roleOptions}
+      location={location}
+      onLocationChange={setLocation}
+    />
+  );
+
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 pt-4">
-        <FilterBar
-          selectedExperience={selectedExperience}
-          onExperienceChange={setSelectedExperience}
-          selectedSkills={selectedSkills}
-          onSkillsChange={setSelectedSkills}
-          skillOptions={skillOptions}
-          selectedRoles={selectedRoles}
-          onRolesChange={setSelectedRoles}
-          roleOptions={roleOptions}
-          location={location}
-          onLocationChange={setLocation}
-        />
-      </div>
+      {/* Global filter bar — full-width state only. */}
+      {!splitOpen && <div className="px-4 pt-4">{filterBar}</div>}
 
-      <CardCarousel
-        key={connectId ? `${connectId}:${focusNonce}` : "feed"}
-        profiles={displayProfiles}
-        onSwipe={handleSwipe}
-        isLoading={isLoading}
-      />
+      <div className="flex-1 min-h-0 flex">
+        {/* Master: filter bar (when split) + swipeable card stack. Narrows when
+            the detail panel opens; hidden on mobile where Detail goes fullscreen. */}
+        <div
+          className={cn(
+            "min-w-0 flex flex-col transition-[flex-basis] duration-300 ease-out",
+            splitOpen ? "hidden md:flex md:basis-[44%]" : "basis-full"
+          )}
+        >
+          {splitOpen && <div className="px-4 pt-4">{filterBar}</div>}
+          <CardCarousel
+            key={connectId ? `${connectId}:${focusNonce}` : "feed"}
+            profiles={displayProfiles}
+            onSwipe={handleSwipe}
+            isLoading={isLoading}
+            onCardClick={() => setSplitOpen(true)}
+            onCurrentChange={setCurrentProfile}
+            compact={splitOpen}
+          />
+        </div>
+
+        {/* Detail: full profile of the current card. Full-height side-by-side
+            on desktop (flush under the header, bypassing the filter bar);
+            full-screen overlay on mobile. */}
+        <AnimatePresence>
+          {splitOpen && currentProfile && (
+            <motion.aside
+              key="detail"
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 32 }}
+              className="fixed inset-0 z-50 bg-[#151515] md:static md:z-auto md:flex-1 md:min-w-0 md:border-l md:border-[rgba(132,120,212,0.1)]"
+            >
+              <ExploreDetailPanel
+                profile={currentProfile}
+                onClose={() => setSplitOpen(false)}
+              />
+            </motion.aside>
+          )}
+        </AnimatePresence>
+      </div>
 
       <MatchOverlay />
     </div>
