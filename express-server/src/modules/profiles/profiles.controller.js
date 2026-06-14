@@ -31,9 +31,11 @@ export const getProfile = async (req, res) => {
 };
 
 export const searchProfiles = async (req, res) => {
-  const { skills, min_experience, max_experience, page, limit } = req.query;
-  
+  const { q, skills, min_experience, max_experience, page, limit } = req.query;
+
   const filters = {
+    q: typeof q === "string" && q.trim() ? q.trim() : undefined,
+    excludeId: req.user.id, // don't match the searcher against themselves
     skills: skills ? (Array.isArray(skills) ? skills : [skills]) : [],
     min_experience: min_experience ? parseInt(min_experience) : undefined,
     max_experience: max_experience ? parseInt(max_experience) : undefined,

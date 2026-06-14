@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Search, X } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import {
@@ -14,6 +14,7 @@ import {
 import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationItem } from "@/components/layout/NotificationItem";
+import { SearchBar } from "@/components/layout/SearchBar";
 import type { AppNotification } from "@/types";
 
 type NotificationTab = "all" | "match" | "connect" | "message";
@@ -77,18 +78,9 @@ export function TopNav() {
           Tinday.
         </button>
 
-        {/* Center search */}
-        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-2 bg-[#221E30] rounded-xl px-4 py-2 w-[360px]">
-          <Search className="w-4 h-4 text-[#9CA3AF]" />
-          <input
-            type="text"
-            placeholder="Search professionals..."
-            className="bg-transparent border-none outline-none text-sm text-white placeholder:text-[#4B5563] w-full"
-          />
-        </div>
-
         {/* Right actions */}
         <div className="flex items-center gap-3 ml-auto md:pr-8">
+          <SearchBar />
           <button
             onClick={togglePanel}
             className="relative flex items-center justify-center w-10 h-10 rounded-xl hover:bg-[rgba(132,120,212,0.06)] transition-colors"

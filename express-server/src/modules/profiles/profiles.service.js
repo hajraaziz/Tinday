@@ -99,11 +99,32 @@ export const getProfileById = async (userId) => {
 };
 
 export const searchProfiles = async (filters) => {
-  const { skills, min_experience, max_experience, page = 1, limit = 10 } = filters;
-  
+  const {
+    q,
+    excludeId,
+    skills,
+    min_experience,
+    max_experience,
+    page = 1,
+    limit = 10,
+  } = filters;
+
   let query = supabase
     .from("profiles")
-    .select("*", { count: "exact" });
+    // Public columns only — never ship the large `embedding` vector to clients.
+    .select(
+      "id, name, avatar_url, about, location, experience_years, skills, roles, projects, preferences, socials",
+      { count: "exact" }
+    );
+
+  if (q) {
+    // Prefix match — only names that START with q (case-insensitive).
+    query = query.ilike("name", `${q}%`);
+  }
+
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
 
   if (skills && skills.length > 0) {
     query = query.contains("skills", skills);
