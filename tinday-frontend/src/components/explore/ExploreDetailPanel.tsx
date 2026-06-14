@@ -113,8 +113,10 @@ export function ExploreDetailPanel({
             </div>
 
             <div className="px-5 pb-5">
-              {/* Avatar overlapping the cover (read-only) */}
-              <div className="-mt-12">
+              {/* Avatar overlapping the cover (read-only). `relative z-10` keeps
+                  it painted above the positioned cover, which would otherwise
+                  cover the half that overlaps upward. */}
+              <div className="relative z-10 -mt-12">
                 <div className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-[#8478D4] bg-[#221E30]">
                   {profile.avatar_url ? (
                     <Image
