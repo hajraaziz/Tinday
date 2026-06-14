@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useState, useCallback, useMemo } from "react";
+import {
+  Suspense,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useExploreFeed } from "@/hooks/useExploreFeed";
@@ -63,6 +70,51 @@ function ExploreInner() {
   const [currentProfile, setCurrentProfile] = useState<PublicProfile | null>(
     null
   );
+
+  // User-adjustable split. The detail panel can be dragged narrower (down to a
+  // floor that keeps its bento cards legible) but never wider than half the main
+  // content area. `detailWidth === null` means "use the default 50% cap".
+  const splitRowRef = useRef<HTMLDivElement>(null);
+  const [detailWidth, setDetailWidth] = useState<number | null>(null);
+  const MIN_DETAIL_WIDTH = 360;
+
+  const startResize = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const container = splitRowRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const max = rect.width / 2;
+    const onMove = (ev: PointerEvent) => {
+      const raw = rect.right - ev.clientX;
+      setDetailWidth(Math.min(max, Math.max(MIN_DETAIL_WIDTH, raw)));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  }, []);
+
+  // Keep a dragged width within the 50% cap as the viewport (and thus the main
+  // content area) changes size.
+  useEffect(() => {
+    const container = splitRowRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(() => {
+      setDetailWidth((w) => {
+        if (w == null) return w;
+        const max = container.getBoundingClientRect().width / 2;
+        return Math.min(Math.max(MIN_DETAIL_WIDTH, w), max);
+      });
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
 
   // Arriving from a "wants to connect" notification: ?connect=<giverId> surfaces
   // that person's card first so the user can swipe right back (→ match) or pass.
@@ -144,13 +196,13 @@ function ExploreInner() {
       {/* Global filter bar — full-width state only. */}
       {!splitOpen && <div className="px-4 pt-4">{filterBar}</div>}
 
-      <div className="flex-1 min-h-0 flex">
+      <div ref={splitRowRef} className="flex-1 min-h-0 flex">
         {/* Master: filter bar (when split) + swipeable card stack. Narrows when
             the detail panel opens; hidden on mobile where Detail goes fullscreen. */}
         <div
           className={cn(
             "min-w-0 flex flex-col transition-[flex-basis] duration-300 ease-out",
-            splitOpen ? "hidden md:flex md:basis-[44%]" : "basis-full"
+            splitOpen ? "hidden md:flex md:flex-1" : "basis-full"
           )}
         >
           {splitOpen && <div className="px-4 pt-4">{filterBar}</div>}
@@ -176,8 +228,24 @@ function ExploreInner() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 32 }}
-              className="fixed inset-0 z-50 bg-[#151515] md:static md:z-auto md:flex-1 md:min-w-0 md:border-l md:border-[rgba(132,120,212,0.1)]"
+              style={
+                {
+                  "--detail-w": detailWidth ? `${detailWidth}px` : undefined,
+                } as React.CSSProperties
+              }
+              className="fixed inset-0 z-50 bg-[#151515] md:relative md:z-auto md:flex-none md:w-[var(--detail-w,50%)] md:max-w-[50%] md:min-w-0 md:border-l md:border-[rgba(132,120,212,0.1)]"
             >
+              {/* Drag handle — desktop only. Sits over the left border so the
+                  user can widen/narrow the detail panel within the 50% cap. */}
+              <div
+                onPointerDown={startResize}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize detail panel"
+                className="group absolute inset-y-0 left-0 z-20 hidden w-2 -translate-x-1/2 cursor-col-resize md:block"
+              >
+                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-[#8478D4]/50" />
+              </div>
               <ExploreDetailPanel
                 profile={currentProfile}
                 onClose={() => setSplitOpen(false)}

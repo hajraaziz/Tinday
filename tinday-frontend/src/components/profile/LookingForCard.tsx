@@ -8,6 +8,9 @@ interface LookingForCardProps {
   preferredSkills: string[];
   preferredRoles: string[];
   onEdit?: () => void;
+  // Layout for the Preferred skills/roles block. Defaults to the side-by-side
+  // grid used on /profile; the Explore detail panel overrides it.
+  pillsClassName?: string;
 }
 
 // "Looking For" bento: connect-note on top (muted prompt when empty),
@@ -17,6 +20,7 @@ export function LookingForCard({
   preferredSkills,
   preferredRoles,
   onEdit,
+  pillsClassName = "grid sm:grid-cols-2 gap-x-6 gap-y-4 mt-4",
 }: LookingForCardProps) {
   const hasSkills = preferredSkills.length > 0;
   const hasRoles = preferredRoles.length > 0;
@@ -42,7 +46,7 @@ export function LookingForCard({
       ) : null}
 
       {(hasSkills || hasRoles) && (
-        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4 mt-4">
+        <div className={pillsClassName}>
           {hasSkills && (
             <div>
               <p className="text-xs font-medium text-[#9CA3AF] mb-2">

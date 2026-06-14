@@ -28,6 +28,12 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+// Skills/Roles layout for the (narrow, resizable) detail panel: stacked by
+// default so a sparse card stays short, splitting into two content-width columns
+// (packed left, not a wide 50/50 split) only once the panel is wide enough.
+const PANEL_PILLS_LAYOUT =
+  "grid grid-cols-1 @xl:grid-cols-[repeat(2,minmax(0,max-content))] @xl:justify-start gap-x-10 gap-y-4 mt-4";
+
 /**
  * The "Detail" side of the Explore master-detail split: a self-contained,
  * scrollable full profile for the carousel's current card. Mirrors the bento
@@ -75,10 +81,12 @@ export function ExploreDetailPanel({
   };
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="@container max-w-5xl mx-auto px-4 py-6 space-y-5">
-        {/* Top row — main header card beside Intro (matches /profile) */}
-        <div className="grid @2xl:grid-cols-[1fr_320px] gap-5 items-start">
+    <div className="h-full overflow-y-auto @container">
+      <div className="mx-auto px-4 py-6 space-y-5 w-full max-w-5xl">
+        {/* Top row — main header card beside Intro (matches /profile). No
+            `items-start`: the Intro stretches to the hero's height so a sparse
+            Intro doesn't leave a black gap beneath it. */}
+        <div className="grid @2xl:grid-cols-[1fr_320px] gap-5">
           {/* Hero card — read-only adaptation of the /profile hero */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
@@ -199,6 +207,7 @@ export function ExploreDetailPanel({
           about={profile.about}
           skills={profile.skills ?? []}
           roles={profile.roles ?? []}
+          pillsClassName={PANEL_PILLS_LAYOUT}
         />
 
         {/* Projects — renders null when empty */}
@@ -209,6 +218,7 @@ export function ExploreDetailPanel({
           connectNote={connectNote}
           preferredSkills={asStringArray(prefs.preferred_skills)}
           preferredRoles={asStringArray(prefs.preferred_roles)}
+          pillsClassName={PANEL_PILLS_LAYOUT}
         />
       </div>
     </div>

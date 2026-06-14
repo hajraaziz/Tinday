@@ -8,10 +8,19 @@ interface AboutCardProps {
   skills: string[];
   roles: string[];
   onEdit?: () => void;
+  // Layout for the Skills/Roles block. Defaults to the side-by-side grid used on
+  // /profile; the Explore detail panel overrides it with a responsive variant.
+  pillsClassName?: string;
 }
 
 // "About" bento: full-width about text on top, then Skills | Roles side by side.
-export function AboutCard({ about, skills, roles, onEdit }: AboutCardProps) {
+export function AboutCard({
+  about,
+  skills,
+  roles,
+  onEdit,
+  pillsClassName = "grid sm:grid-cols-2 gap-x-6 gap-y-4 mt-4",
+}: AboutCardProps) {
   const hasSkills = skills.length > 0;
   const hasRoles = roles.length > 0;
   if (!about && !hasSkills && !hasRoles) return null;
@@ -25,7 +34,7 @@ export function AboutCard({ about, skills, roles, onEdit }: AboutCardProps) {
       )}
 
       {(hasSkills || hasRoles) && (
-        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4 mt-4">
+        <div className={pillsClassName}>
           {hasSkills && (
             <div>
               <p className="text-xs font-medium text-[#9CA3AF] mb-2">Skills</p>
