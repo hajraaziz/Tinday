@@ -233,7 +233,7 @@ function ExploreInner() {
                   "--detail-w": detailWidth ? `${detailWidth}px` : undefined,
                 } as React.CSSProperties
               }
-              className="fixed inset-0 z-50 bg-[#151515] md:relative md:z-auto md:flex-none md:w-[var(--detail-w,50%)] md:max-w-[50%] md:min-w-0 md:border-l md:border-[rgba(132,120,212,0.1)]"
+              className="fixed top-[60px] bottom-[60px] inset-x-0 z-50 bg-[#151515] md:relative md:inset-auto md:z-auto md:flex-none md:w-[var(--detail-w,50%)] md:max-w-[50%] md:min-w-0 md:border-l md:border-[rgba(132,120,212,0.1)]"
             >
               {/* Drag handle — desktop only. Sits over the left border so the
                   user can widen/narrow the detail panel within the 50% cap. */}
