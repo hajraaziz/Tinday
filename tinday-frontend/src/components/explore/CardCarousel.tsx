@@ -50,8 +50,12 @@ export function CardCarousel({
   compact,
 }: CardCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  // Direction the leaving card flies off toward (drives the exit animation).
-  const [exitDir, setExitDir] = useState<1 | -1>(1);
+  // How the leaving card flies off (drives the exit animation): horizontally
+  // for Pass/Connect, vertically for next/prev navigation.
+  const [exit, setExit] = useState<{ axis: "x" | "y"; dir: 1 | -1 }>({
+    axis: "x",
+    dir: 1,
+  });
 
   // Reset to the top of the feed whenever it changes (e.g. filters applied).
   // Adjusting state during render off a tracked prev value is the React-blessed
@@ -68,32 +72,47 @@ export function CardCarousel({
     onCurrentChange?.(profiles[currentIndex] ?? null);
   }, [currentIndex, profiles, onCurrentChange]);
 
-  const advance = useCallback(() => {
-    if (profiles.length === 0) return;
-    setExitDir(1);
-    setCurrentIndex((prev) => (prev + 1) % profiles.length);
-  }, [profiles.length]);
+  // Move between cards without recording a Pass/Connect. `exitSpec` controls the
+  // fly-off direction so desktop arrows leave horizontally and vertical swipes
+  // leave vertically.
+  const goTo = useCallback(
+    (step: 1 | -1, exitSpec: { axis: "x" | "y"; dir: 1 | -1 }) => {
+      if (profiles.length === 0) return;
+      setExit(exitSpec);
+      setCurrentIndex(
+        (prev) => (prev + step + profiles.length) % profiles.length
+      );
+    },
+    [profiles.length]
+  );
 
-  const retreat = useCallback(() => {
-    if (profiles.length === 0) return;
-    setExitDir(-1);
-    setCurrentIndex((prev) => (prev - 1 + profiles.length) % profiles.length);
-  }, [profiles.length]);
+  // Desktop arrows: navigate with a horizontal fly-off.
+  const advance = useCallback(
+    () => goTo(1, { axis: "x", dir: 1 }),
+    [goTo]
+  );
+  const retreat = useCallback(
+    () => goTo(-1, { axis: "x", dir: -1 }),
+    [goTo]
+  );
 
   const handleSwipe = useCallback(
     (direction: "RIGHT" | "LEFT") => {
       if (profiles.length === 0) return;
       onSwipe(profiles[currentIndex], direction);
-      setExitDir(direction === "RIGHT" ? 1 : -1);
+      setExit({ axis: "x", dir: direction === "RIGHT" ? 1 : -1 });
       setCurrentIndex((prev) => (prev + 1) % profiles.length);
     },
     [profiles, currentIndex, onSwipe]
   );
 
-  // Drag-to-swipe on the active card (mouse + touch).
+  // Drag-to-swipe on the active card (mouse + touch). Horizontal = Pass/Connect;
+  // vertical = next/prev navigation (swipe up → next, swipe down → previous).
   const swipe = useSwipe({
     onSwipeLeft: () => handleSwipe("LEFT"),
     onSwipeRight: () => handleSwipe("RIGHT"),
+    onSwipeUp: () => goTo(1, { axis: "y", dir: -1 }),
+    onSwipeDown: () => goTo(-1, { axis: "y", dir: 1 }),
     enabled: profiles.length > 0,
   });
 
@@ -123,17 +142,16 @@ export function CardCarousel({
   }
 
   const profile = profiles[currentIndex];
-  const flyDistance =
-    typeof window !== "undefined" ? window.innerWidth : 800;
+  const flyW = typeof window !== "undefined" ? window.innerWidth : 800;
+  const flyH = typeof window !== "undefined" ? window.innerHeight : 800;
 
   const cardVariants = {
-    enter: { opacity: 0, scale: 0.96, x: 0, rotateZ: 0 },
-    center: { opacity: 1, scale: 1, x: 0, rotateZ: 0 },
-    exit: (dir: 1 | -1) => ({
-      x: dir * flyDistance,
-      rotateZ: dir * 18,
-      opacity: 0,
-    }),
+    enter: { opacity: 0, scale: 0.96, x: 0, y: 0, rotateZ: 0 },
+    center: { opacity: 1, scale: 1, x: 0, y: 0, rotateZ: 0 },
+    exit: ({ axis, dir }: { axis: "x" | "y"; dir: 1 | -1 }) =>
+      axis === "x"
+        ? { x: dir * flyW, rotateZ: dir * 18, opacity: 0 }
+        : { y: dir * flyH, opacity: 0 },
   };
 
   return (
@@ -146,7 +164,7 @@ export function CardCarousel({
       >
         <button
           onClick={retreat}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
+          className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
           aria-label="Previous profile"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -155,16 +173,22 @@ export function CardCarousel({
         {/* Only one card is mounted at a time; the leaving card flies off via
             the exit animation while the next fades in. No stacked deck, so
             there is nothing to ghost through behind it. */}
-        <AnimatePresence initial={false} custom={exitDir} mode="popLayout">
+        <AnimatePresence initial={false} custom={exit} mode="popLayout">
           <motion.div
             key={profile.id}
             className="absolute cursor-grab active:cursor-grabbing"
-            custom={exitDir}
+            custom={exit}
             variants={cardVariants}
             initial="enter"
             animate={
               swipe.isDragging
-                ? { opacity: 1, scale: 1, x: swipe.x, rotateZ: swipe.rotation }
+                ? {
+                    opacity: 1,
+                    scale: 1,
+                    x: swipe.x,
+                    y: swipe.y,
+                    rotateZ: swipe.rotation,
+                  }
                 : "center"
             }
             exit="exit"
@@ -182,7 +206,7 @@ export function CardCarousel({
                 if (swipe.wasDragged()) return;
                 onCardClick?.(profile);
               }}
-              style={{ touchAction: "pan-y" }}
+              style={{ touchAction: "none" }}
             >
               <ProfileCard
                 profile={profile}
@@ -196,7 +220,7 @@ export function CardCarousel({
 
         <button
           onClick={advance}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
+          className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-[#1C1829]/80 backdrop-blur-sm border border-[rgba(132,120,212,0.12)] text-[#9CA3AF] hover:text-white transition-colors"
           aria-label="Next profile"
         >
           <ChevronRight className="w-5 h-5" />
