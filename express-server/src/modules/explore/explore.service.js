@@ -82,6 +82,11 @@ const fetchFallbackProfiles = async (userId, excludeIds, filters = {}) => {
       "id, name, avatar_url, about, location, experience_years, skills, roles, projects, preferences, socials",
     )
     .neq("id", userId)
+    // Exclude users who opted out of Explore. Absent/null preference => open by
+    // default, so only an explicit `false` hides them. Mirrors match_profiles.
+    .or(
+      "preferences->>open_to_connect.is.null,preferences->>open_to_connect.eq.true",
+    )
     .order("created_at", { ascending: false })
     .limit(filters.limit || 20);
 

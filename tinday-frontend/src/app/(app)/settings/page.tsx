@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { Toggle } from "@/components/settings/Toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -112,6 +113,36 @@ export default function SettingsPage() {
     unsubscribe: unsubscribePush,
   } = usePushSubscription();
 
+  // "Open to connect" is server-backed (it gates the Explore feed), unlike the
+  // localStorage toggles above. Source of truth is profile.preferences; absence
+  // means ON. Local optimistic state flips the switch instantly, then reconciles
+  // when useUpdateProfile refreshes the store.
+  const updateProfile = useUpdateProfile();
+  const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
+  const [openToConnect, setOpenToConnect] = useState(
+    prefs.open_to_connect !== false,
+  );
+
+  // Resync if the profile lands in the store after mount (initializer runs once).
+  // Skip while a write is in flight so we don't clobber the optimistic value.
+  const persistedOpenToConnect = prefs.open_to_connect !== false;
+  useEffect(() => {
+    if (!updateProfile.isPending) setOpenToConnect(persistedOpenToConnect);
+  }, [persistedOpenToConnect, updateProfile.isPending]);
+
+  const handleOpenToConnectChange = (next: boolean) => {
+    setOpenToConnect(next);
+    updateProfile.mutate(
+      { preferences: { ...prefs, open_to_connect: next } },
+      {
+        onError: () => {
+          setOpenToConnect(!next);
+          toast.error("Couldn't update — try again.");
+        },
+      },
+    );
+  };
+
   const handlePushToggle = async (next: boolean) => {
     if (next) {
       const ok = await subscribePush();
@@ -204,6 +235,17 @@ export default function SettingsPage() {
 
         {/* Privacy */}
         <Section title="Privacy">
+          <SettingRow
+            label="Open to connect"
+            description="When on, your profile card appears in other people's Explore feed. Turn it off to stay hidden from new people."
+          >
+            <Toggle
+              ariaLabel="Open to connect"
+              checked={openToConnect}
+              disabled={updateProfile.isPending}
+              onChange={handleOpenToConnectChange}
+            />
+          </SettingRow>
           <SettingRow label="Who can see my profile" description="Everyone">
             <Lock className="w-4 h-4 text-[#4B5563]" />
           </SettingRow>
