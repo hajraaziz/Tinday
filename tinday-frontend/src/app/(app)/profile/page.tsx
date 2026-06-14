@@ -20,6 +20,7 @@ import { IntroCard } from "@/components/profile/IntroCard";
 import { AboutCard } from "@/components/profile/AboutCard";
 import { ProjectsCard } from "@/components/profile/ProjectsCard";
 import { LookingForCard } from "@/components/profile/LookingForCard";
+import { SkillPills } from "@/components/profile/SkillPills";
 import { EditProfileDialog } from "@/components/profile/EditProfileDialog";
 import { MatchesModal } from "@/components/profile/MatchesModal";
 import { ProfileCardModal } from "@/components/profile/ProfileCardModal";
@@ -98,8 +99,10 @@ export default function ProfilePage() {
   return (
     <div className="min-h-full pb-12 pt-6">
       <div className="max-w-5xl mx-auto px-4 space-y-5">
-        {/* Top row — profile-pic card + Intro */}
-        <div className="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
+        {/* Top row — profile-pic card + Intro. No `items-start`: the grid's
+            default stretch lets the shorter of the two cards fill the row height,
+            so an uneven hero/Intro pair shows card surface instead of a black gap. */}
+        <div className="grid lg:grid-cols-[1fr_360px] gap-5">
           {/* Hero card */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
@@ -187,6 +190,13 @@ export default function ProfilePage() {
                 </h1>
                 {primaryRole && (
                   <p className="text-sm text-[#9CA3AF] mt-1">{primaryRole}</p>
+                )}
+                {(profile.skills?.length ?? 0) > 0 && (
+                  <SkillPills
+                    items={profile.skills}
+                    variant="accent"
+                    className="mt-3"
+                  />
                 )}
               </div>
             </div>
