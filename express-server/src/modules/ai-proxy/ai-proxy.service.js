@@ -115,10 +115,15 @@ export const shareProfile = async (userId, profileId) => {
     let fullText = "";
     response.data.on("data", (chunk) => {
       const text = chunk.toString();
-      // FastAPI SSE format: "data: content\n\n"
+      // FastAPI SSE format: "data: <json-encoded chunk>\n\n". The chunk is
+      // JSON-encoded so its newlines don't break the framing — decode each one.
       const matches = text.matchAll(/data: (.*)\n\n/g);
       for (const match of matches) {
-        fullText += match[1];
+        try {
+          fullText += JSON.parse(match[1]);
+        } catch {
+          // Ignore a malformed/partial frame rather than corrupting the analysis.
+        }
       }
     });
 

@@ -36,16 +36,17 @@ async def get_chat_response(user_id: str, message: str, conversation_history: li
     }).execute()
     top_ids = [row['user_id'] for row in match_result.data]
 
-    # 3. Fetch full profile details
+    # 3. Fetch full profile details. The id is included so the model can reference
+    #    a person via the [[profile:<id>]] directive (rendered as a card client-side).
     formatted_profiles = ""
     if top_ids:
         profiles_res = supabase.table('profiles') \
-            .select('name, about, skills, roles, experience_years') \
+            .select('id, name, about, skills, roles, experience_years') \
             .in_('id', top_ids) \
             .execute()
 
         formatted_profiles = "\n---\n".join([
-            f"Name: {p['name']}\nAbout: {p['about']}\n"
+            f"ID: {p['id']}\nName: {p['name']}\nAbout: {p['about']}\n"
             f"Skills: {', '.join(p['skills']) if p['skills'] else 'N/A'}\n"
             f"Roles: {', '.join(p['roles']) if p['roles'] else 'N/A'}\n"
             f"Experience: {p['experience_years']} years"
@@ -55,10 +56,22 @@ async def get_chat_response(user_id: str, message: str, conversation_history: li
     # 4. Build system prompt string
     system_prompt = f"""You are Tinday's AI networking assistant. You help professionals discover relevant collaborators and connections.
 
-You have access to the following user profiles as context:
+## Available profiles (your private context)
+Each profile has an ID. These are the ONLY people you may recommend.
 {formatted_profiles if formatted_profiles else "No profiles found for this query."}
 
-When relevant, recommend specific profiles and explain clearly why they are a good match for the user's goals. Be concise, direct, and professional."""
+## How to format every reply
+Always answer in clean, scannable Markdown — never a wall of text:
+- Lead with a one-line takeaway, then expand.
+- Keep paragraphs short. Use **bold** for key terms.
+- Use `-` bullet lists for any set of points (skills, reasons, steps), not run-on sentences.
+- Use `##` sub-headings only when a reply has clearly distinct sections.
+- Be concise and professional. No filler, no repetition.
+
+## Recommending people
+When you recommend a specific person from the context above, do NOT write their name in prose. Instead, output their profile card by placing this token on its own line:
+[[profile:<ID>]]
+Use the exact ID from the context (never invent one). You may add a short sentence before each card explaining why they fit. If no profile is a good match, say so plainly and output no token."""
 
     # 5. Build contents using types.Content + types.Part
     #    The new google-genai SDK requires typed objects — plain dicts are NOT accepted.
@@ -113,8 +126,10 @@ When relevant, recommend specific profiles and explain clearly why they are a go
             )
             async for chunk in response:
                 if chunk.text:
-                    yield f"data: {chunk.text}\n\n"
+                    # JSON-encode so embedded newlines in the chunk can't collide
+                    # with the "\n\n" SSE delimiter (clients JSON-decode each chunk).
+                    yield f"data: {json.dumps(chunk.text)}\n\n"
         except Exception as e:
-            yield f"data: Error: {str(e)}\n\n"
+            yield f"data: {json.dumps(f'Error: {str(e)}')}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

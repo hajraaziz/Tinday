@@ -117,14 +117,25 @@ export function useSendAIMessage(conversationId: string) {
           while ((sep = buffer.indexOf("\n\n")) !== -1) {
             const raw = buffer.slice(0, sep);
             buffer = buffer.slice(sep + 2);
-            const chunk = raw.startsWith("data: ")
+            const payload = raw.startsWith("data: ")
               ? raw.slice(6)
               : raw.startsWith("data:")
                 ? raw.slice(5)
                 : "";
-            if (chunk) {
-              acc += chunk;
-              setLiveText(acc);
+            // Each chunk is JSON-encoded server-side so its newlines survive the
+            // "\n\n" SSE framing — decode back to the original text (incl. markdown
+            // line breaks). Skip anything that isn't valid JSON.
+            if (payload) {
+              let chunk = "";
+              try {
+                chunk = JSON.parse(payload);
+              } catch {
+                continue;
+              }
+              if (chunk) {
+                acc += chunk;
+                setLiveText(acc);
+              }
             }
           }
         }
