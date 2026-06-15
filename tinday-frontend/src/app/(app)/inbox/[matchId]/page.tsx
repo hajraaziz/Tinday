@@ -8,9 +8,12 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, FileText, Paperclip, Send, X } from "lucide-react";
+import { toast } from "sonner";
 import { useMessages } from "@/hooks/useMessages";
 import { useSendMessage } from "@/hooks/useSendMessage";
+import { useUploadAttachment } from "@/hooks/useUploadAttachment";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { usePresence } from "@/hooks/usePresence";
@@ -18,10 +21,35 @@ import { useMatches } from "@/hooks/useMatches";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { MessageBubble } from "@/components/inbox/MessageBubble";
+import { EmojiPicker } from "@/components/inbox/EmojiPicker";
 import { TypingIndicator } from "@/components/inbox/TypingIndicator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
+
+// Mirrors the Express allowlist (messaging.routes.js): images, PDFs, office docs.
+const ALLOWED_ATTACHMENT_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
+  "application/zip",
+];
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+interface PendingAttachment {
+  file: File;
+  previewUrl?: string; // object URL, images only
+  type: string;
+  name: string;
+}
 
 export default function ThreadPage() {
   const params = useParams<{ matchId: string }>();
@@ -34,13 +62,20 @@ export default function ThreadPage() {
   const { data: messages = [], isLoading, isError } = useMessages(matchId);
   const { data: matches = [] } = useMatches();
   const sendMessage = useSendMessage(matchId);
+  const uploadAttachment = useUploadAttachment(matchId);
   useRealtimeMessages(matchId);
   const { isOtherTyping, notifyTyping, stopTyping } =
     useTypingIndicator(matchId);
   const isOtherOnline = usePresence(matchId);
 
   const [draft, setDraft] = useState("");
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isSending = sendMessage.isPending || uploadAttachment.isPending;
 
   const otherUser = useMemo(
     () => matches.find((m) => m.match_id === matchId)?.user,
@@ -59,12 +94,95 @@ export default function ThreadPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isOtherTyping]);
 
-  const handleSend = () => {
+  // Revoke a pending image preview when it's cleared or the view unmounts.
+  useEffect(() => {
+    return () => {
+      if (pendingAttachment?.previewUrl)
+        URL.revokeObjectURL(pendingAttachment.previewUrl);
+    };
+  }, [pendingAttachment]);
+
+  const clearPending = () => {
+    if (pendingAttachment?.previewUrl)
+      URL.revokeObjectURL(pendingAttachment.previewUrl);
+    setPendingAttachment(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
+      toast.error("That file type isn't supported");
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    clearPending();
+    setPendingAttachment({
+      file,
+      previewUrl: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : undefined,
+      type: file.type,
+      name: file.name,
+    });
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const el = textareaRef.current;
+    if (!el) {
+      setDraft((d) => d + emoji);
+      return;
+    }
+    const start = el.selectionStart ?? draft.length;
+    const end = el.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    setDraft(next);
+    // Restore focus and place the caret right after the inserted emoji.
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const handleSend = async () => {
     const content = draft.trim();
-    if (!content || sendMessage.isPending) return;
+    if ((!content && !pendingAttachment) || isSending) return;
     stopTyping();
+
+    if (pendingAttachment) {
+      const pending = pendingAttachment;
+      try {
+        const uploaded = await uploadAttachment.mutateAsync(pending.file);
+        setDraft("");
+        setPendingAttachment(null);
+        sendMessage.mutate(
+          {
+            content: content || undefined,
+            attachment_url: uploaded.url,
+            attachment_type: uploaded.type,
+            attachment_name: uploaded.name,
+            previewUrl: pending.previewUrl,
+          },
+          {
+            onSettled: () => {
+              if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+            },
+          }
+        );
+      } catch {
+        // Keep the draft + pending attachment so the user can retry.
+        toast.error("Couldn't upload that file. Try again.");
+      }
+      return;
+    }
+
     setDraft("");
-    sendMessage.mutate(content);
+    sendMessage.mutate({ content });
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -159,32 +277,82 @@ export default function ThreadPage() {
 
       {/* Composer */}
       <div className="shrink-0 border-t border-[rgba(132,120,212,0.08)] bg-[#151515] px-3 py-3">
-        <div className="max-w-2xl mx-auto flex items-end gap-2">
-          <textarea
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              notifyTyping();
-            }}
-            onKeyDown={handleKeyDown}
-            onBlur={stopTyping}
-            rows={1}
-            placeholder="Type a message…"
-            className="flex-1 resize-none max-h-32 rounded-2xl bg-[#221E30] px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-1 focus:ring-[#8478D4]"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!draft.trim() || sendMessage.isPending}
-            className={cn(
-              "shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors",
-              draft.trim() && !sendMessage.isPending
-                ? "bg-[#8478D4] text-white hover:bg-[#9488e0]"
-                : "bg-[#221E30] text-[#4B5563]"
-            )}
-            aria-label="Send message"
-          >
-            <Send className="w-[18px] h-[18px]" />
-          </button>
+        <div className="max-w-2xl mx-auto">
+          {/* Pending attachment preview */}
+          {pendingAttachment && (
+            <div className="mb-2 flex items-center gap-2.5 rounded-xl bg-[#221E30] p-2 pr-3 w-fit max-w-full">
+              {pendingAttachment.previewUrl ? (
+                <Image
+                  src={pendingAttachment.previewUrl}
+                  alt={pendingAttachment.name}
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="w-10 h-10 rounded-lg object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-[rgba(132,120,212,0.12)] flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-[#8478D4]" />
+                </div>
+              )}
+              <span className="text-sm text-white truncate max-w-[180px]">
+                {pendingAttachment.name}
+              </span>
+              <button
+                onClick={clearPending}
+                disabled={isSending}
+                aria-label="Remove attachment"
+                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[#9CA3AF] hover:bg-[rgba(132,120,212,0.12)] hover:text-white transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-end gap-1">
+            <EmojiPicker onSelect={insertEmoji} disabled={isSending} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+              aria-label="Attach a file"
+              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full text-[#9CA3AF] hover:bg-[rgba(132,120,212,0.08)] hover:text-white transition-colors disabled:opacity-50"
+            >
+              <Paperclip className="w-[20px] h-[20px]" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ALLOWED_ATTACHMENT_TYPES.join(",")}
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                notifyTyping();
+              }}
+              onKeyDown={handleKeyDown}
+              onBlur={stopTyping}
+              rows={1}
+              placeholder="Type a message…"
+              className="flex-1 resize-none max-h-32 rounded-2xl bg-[#221E30] px-4 py-2.5 text-sm text-white placeholder:text-[#4B5563] outline-none focus:ring-1 focus:ring-[#8478D4]"
+            />
+            <button
+              onClick={handleSend}
+              disabled={(!draft.trim() && !pendingAttachment) || isSending}
+              className={cn(
+                "shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors",
+                (draft.trim() || pendingAttachment) && !isSending
+                  ? "bg-[#8478D4] text-white hover:bg-[#9488e0]"
+                  : "bg-[#221E30] text-[#4B5563]"
+              )}
+              aria-label="Send message"
+            >
+              <Send className="w-[18px] h-[18px]" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

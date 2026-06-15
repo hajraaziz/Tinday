@@ -112,12 +112,16 @@ export interface MatchWithUser {
   user: PublicProfile;
 }
 
-// Matches OpenAPI: Message schema
+// Matches OpenAPI: Message schema. `content` is null for an attachment-only
+// message; the attachment_* fields are set when a file is attached.
 export interface Message {
   id: string;
   match_id: string;
   sender_id: string;
-  content: string;
+  content: string | null;
+  attachment_url?: string | null;
+  attachment_type?: string | null;
+  attachment_name?: string | null;
   read_at: string | null;
   created_at: string;
 }
@@ -129,7 +133,10 @@ export interface InboxEntry {
   latest_message: {
     id: string;
     sender_id: string;
-    content: string;
+    content: string | null;
+    attachment_url?: string | null;
+    attachment_type?: string | null;
+    attachment_name?: string | null;
     read_at: string | null;
     created_at: string;
   } | null;
@@ -191,11 +198,22 @@ export interface AIConversation {
   updated_at: string;
 }
 
+// An attachment shown in a user's AI-chat bubble. `url` is an EPHEMERAL,
+// session-only object URL (gone after a reload) — file bytes are never persisted
+// to localStorage. After reload, the bubble degrades to a filename chip.
+export interface AIMessageAttachment {
+  name: string;
+  mime_type: string;
+  url?: string;
+}
+
 // Local-only chat message. Sent to the API as { role, content } only; the
 // optional sharedProfile is rendered as a card and never leaves the browser.
+// Attachments are sent to the API for the current turn only (see useSendAIMessage).
 export interface AIMessage {
   id: string;
   role: "user" | "model";
   content: string;
   sharedProfile?: PublicProfile;
+  attachments?: AIMessageAttachment[];
 }

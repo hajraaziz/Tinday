@@ -73,17 +73,25 @@ export const markMatchRead = async (matchId, userId) => {
 };
 
 /**
- * Send a message to a match
+ * Send a message to a match. `payload` carries optional text plus optional
+ * attachment metadata ({ content?, attachment_url?, attachment_type?,
+ * attachment_name? }); the route schema guarantees at least one of text or
+ * attachment is present.
  */
-export const sendMessage = async (matchId, userId, content) => {
+export const sendMessage = async (matchId, userId, payload) => {
   const match = await verifyMatchMembership(matchId, userId);
+
+  const { content, attachment_url, attachment_type, attachment_name } = payload;
 
   const { data, error } = await supabase
     .from("messages")
     .insert({
       match_id: matchId,
       sender_id: userId,
-      content,
+      content: content ?? null,
+      attachment_url: attachment_url ?? null,
+      attachment_type: attachment_type ?? null,
+      attachment_name: attachment_name ?? null,
     })
     .select()
     .single();
@@ -98,6 +106,49 @@ export const sendMessage = async (matchId, userId, content) => {
   );
 
   return data;
+};
+
+/**
+ * Upload a message attachment to the `message-attachments` bucket and return its
+ * public URL plus metadata. Does NOT create the message row — the client sends a
+ * follow-up message referencing the returned URL (optionally with a caption).
+ */
+export const uploadAttachment = async (
+  matchId,
+  userId,
+  buffer,
+  mimetype,
+  filename,
+) => {
+  await verifyMatchMembership(matchId, userId);
+
+  const ext = mimetype.split("/")[1] || "bin";
+  const name = filename || `file.${ext}`;
+  const filePath = `${matchId}/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("message-attachments")
+    .upload(filePath, buffer, { contentType: mimetype, upsert: false });
+
+  if (uploadError) throw uploadError;
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("message-attachments").getPublicUrl(filePath);
+
+  return { url: publicUrl, type: mimetype, name };
+};
+
+// Build a short notification preview, falling back to the attachment when a
+// message has no text. 120-char cap matches the text path.
+const attachmentPreview = (message) => {
+  if (message.content) {
+    return message.content.length > 120
+      ? `${message.content.slice(0, 120)}…`
+      : message.content;
+  }
+  if (message.attachment_type?.startsWith("image/")) return "📷 Photo";
+  return `📎 ${message.attachment_name || "Attachment"}`;
 };
 
 // Notify the recipient of a new message, titled with the sender's name and a
@@ -118,10 +169,7 @@ const notifyMessage = async (recipientId, senderId, matchId, message) => {
     .eq("id", senderId)
     .maybeSingle();
 
-  const preview =
-    message.content.length > 120
-      ? `${message.content.slice(0, 120)}…`
-      : message.content;
+  const preview = attachmentPreview(message);
 
   createNotification(recipientId, {
     type: "message",

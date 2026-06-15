@@ -10,6 +10,18 @@ const newId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
 
+// Base64-encode a File in chunks — a single btoa(String.fromCharCode(...bytes))
+// overflows the call stack on large buffers.
+async function fileToBase64(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 // Streams an AI reply for one conversation. The user message is persisted to the
 // store immediately; the assistant reply streams into local `liveText` (so we
 // don't write localStorage on every token) and is committed to the store once
@@ -21,29 +33,50 @@ export function useSendAIMessage(conversationId: string) {
   const abortRef = useRef<AbortController | null>(null);
 
   const send = useCallback(
-    async (text: string, sharedProfile?: AIMessage["sharedProfile"]) => {
+    async (text: string, files?: File[]) => {
       const trimmed = text.trim();
-      if (!trimmed || isStreaming) return;
+      const fileList = files ?? [];
+      if ((!trimmed && fileList.length === 0) || isStreaming) return;
 
       const store = useAIStore.getState();
       store.ensureConversation(conversationId);
 
       // History BEFORE this turn, mapped to the API's {role, content} shape.
+      // History stays text-only — files from prior turns are never re-sent.
       const history = (store.messages[conversationId] ?? []).map((m) => ({
         role: m.role,
         content: m.content,
       }));
 
+      // Store only a lightweight descriptor + an ephemeral object URL — never the
+      // base64 bytes (which would blow the localStorage quota).
+      const attachments: AIMessage["attachments"] = fileList.map((f) => ({
+        name: f.name,
+        mime_type: f.type,
+        url: URL.createObjectURL(f),
+      }));
+
+      const previewText = trimmed || (fileList.length ? `📎 ${fileList[0].name}` : "");
+
       store.appendMessage(conversationId, {
         id: newId(),
         role: "user",
         content: trimmed,
-        sharedProfile,
+        attachments: attachments.length ? attachments : undefined,
       });
       store.touchConversation(conversationId, {
-        title: trimmed.slice(0, 40),
-        last_message: trimmed,
+        title: previewText.slice(0, 40),
+        last_message: previewText,
       });
+
+      // Encode the current turn's files for the request body.
+      const encodedFiles = await Promise.all(
+        fileList.map(async (f) => ({
+          name: f.name,
+          mime_type: f.type,
+          data_base64: await fileToBase64(f),
+        }))
+      );
 
       setIsStreaming(true);
       setLiveText("");
@@ -62,6 +95,7 @@ export function useSendAIMessage(conversationId: string) {
           body: JSON.stringify({
             message: trimmed,
             conversation_history: history,
+            files: encodedFiles,
           }),
           signal: controller.signal,
         });

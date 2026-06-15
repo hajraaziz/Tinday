@@ -16,14 +16,36 @@ export const getMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   const { matchId } = req.params;
-  const { content } = req.body;
 
   const message = await messagingService.sendMessage(
     matchId,
     req.user.id,
-    content,
+    req.body,
   );
   res.status(201).json(message);
+};
+
+export const uploadAttachment = async (req, res) => {
+  const { matchId } = req.params;
+
+  // express.raw leaves an empty buffer when the Content-Type isn't in the
+  // allowlist — treat that as an unsupported media type.
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(415).json({ error: "Unsupported or empty file" });
+  }
+
+  const mimetype = req.headers["content-type"];
+  const rawName = req.headers["x-file-name"];
+  const filename = rawName ? decodeURIComponent(rawName) : undefined;
+
+  const result = await messagingService.uploadAttachment(
+    matchId,
+    req.user.id,
+    req.body,
+    mimetype,
+    filename,
+  );
+  res.status(201).json(result);
 };
 
 export const getInbox = async (req, res) => {

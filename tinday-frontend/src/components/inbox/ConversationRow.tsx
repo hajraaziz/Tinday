@@ -39,10 +39,17 @@ export function ConversationRow({
   const setHidden = useSetChatHidden();
   const markRead = useMarkChatRead();
 
+  const messageSummary = (msg: NonNullable<InboxEntry["latest_message"]>) => {
+    if (msg.content) return msg.content;
+    if (msg.attachment_type?.startsWith("image/")) return "📷 Photo";
+    if (msg.attachment_url) return `📎 ${msg.attachment_name ?? "Attachment"}`;
+    return "";
+  };
+
   const preview = latest_message
-    ? `${latest_message.sender_id === currentUserId ? "You: " : ""}${
-        latest_message.content
-      }`
+    ? `${
+        latest_message.sender_id === currentUserId ? "You: " : ""
+      }${messageSummary(latest_message)}`
     : "You matched — say hello 👋";
 
   const handleMarkRead = () => {

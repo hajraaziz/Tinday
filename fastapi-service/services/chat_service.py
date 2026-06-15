@@ -1,3 +1,4 @@
+import base64
 import json
 from google import genai
 from google.genai import types
@@ -17,7 +18,8 @@ def parse_vector(v):
     return v
 
 
-async def get_chat_response(user_id: str, message: str, conversation_history: list):
+async def get_chat_response(user_id: str, message: str, conversation_history: list, files: list = None):
+    files = files or []
     # 1. Embed the user's message
     embed_result = client.models.embed_content(
         model="gemini-embedding-001",
@@ -70,6 +72,8 @@ When relevant, recommend specific profiles and explain clearly why they are a go
     for m in conversation_history:
         # Gemini uses "model" not "assistant"
         role = "model" if m.role == "assistant" else m.role
+        # History is intentionally text-only — files from prior turns are NOT
+        # re-sent; only the current turn's files (below) reach the model.
         contents.append(
             types.Content(
                 role=role,
@@ -77,10 +81,26 @@ When relevant, recommend specific profiles and explain clearly why they are a go
             )
         )
 
+    # Final user turn: text plus any current-turn files as inline data parts.
+    # from_bytes is the inline-data path, bounded by Gemini's ~20MB request limit
+    # (the client caps total upload size accordingly).
+    final_parts = [types.Part(text=message)]
+    for f in files:
+        try:
+            final_parts.append(
+                types.Part.from_bytes(
+                    data=base64.b64decode(f.data_base64),
+                    mime_type=f.mime_type,
+                )
+            )
+        except Exception:
+            # Skip a malformed/undecodable file rather than failing the turn.
+            continue
+
     contents.append(
         types.Content(
             role="user",
-            parts=[types.Part(text=message)]
+            parts=final_parts
         )
     )
 

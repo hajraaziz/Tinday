@@ -4,6 +4,17 @@ import { apiPost } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import type { Message } from "@/types";
 
+// Payload for a send: text, an attachment, or both. For images the caller may
+// pass a local object-URL `previewUrl` so the optimistic bubble shows the
+// thumbnail instantly — it's swapped for the canonical row on success.
+export interface SendMessagePayload {
+  content?: string;
+  attachment_url?: string;
+  attachment_type?: string;
+  attachment_name?: string;
+  previewUrl?: string;
+}
+
 // POST /api/messaging/matches/:matchId/messages — optimistic send.
 // A temporary message is appended immediately, then reconciled with the row
 // the server returns. Realtime ignores our own messages (see useRealtimeMessages)
@@ -14,19 +25,26 @@ export function useSendMessage(matchId: string) {
   const queryKey = ["messages", matchId];
 
   return useMutation({
-    mutationFn: (content: string) =>
+    mutationFn: (payload: SendMessagePayload) =>
       apiPost<Message>(`/api/messaging/matches/${matchId}/messages`, {
-        content,
+        content: payload.content,
+        attachment_url: payload.attachment_url,
+        attachment_type: payload.attachment_type,
+        attachment_name: payload.attachment_name,
       }),
 
-    onMutate: async (content): Promise<{ tempId: string }> => {
+    onMutate: async (payload): Promise<{ tempId: string }> => {
       await queryClient.cancelQueries({ queryKey });
       const tempId = `optimistic-${Date.now()}`;
       const optimistic: Message = {
         id: tempId,
         match_id: matchId,
         sender_id: userId ?? "",
-        content,
+        content: payload.content ?? null,
+        // Use the local preview URL for images so the thumbnail shows instantly.
+        attachment_url: payload.previewUrl ?? payload.attachment_url ?? null,
+        attachment_type: payload.attachment_type ?? null,
+        attachment_name: payload.attachment_name ?? null,
         read_at: null,
         created_at: new Date().toISOString(),
       };

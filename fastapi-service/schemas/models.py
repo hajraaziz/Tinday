@@ -27,10 +27,17 @@ class ChatMessage(BaseModel):
     role: str  # "user", "model", or "system"
     content: str
 
+class ChatFile(BaseModel):
+    name: str
+    mime_type: str
+    data_base64: str  # raw file bytes, base64-encoded
+
 class ChatRequest(BaseModel):
     user_id: str
     message: str
     conversation_history: List[ChatMessage] = Field(default_factory=list)
+    # Files for the CURRENT turn only — history stays text-only.
+    files: List[ChatFile] = Field(default_factory=list)
 
 class ValidateTagRequest(BaseModel):
     value: str

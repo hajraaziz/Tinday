@@ -8,9 +8,10 @@ router = APIRouter()
 async def chat_with_ai(request: ChatRequest):
     try:
         return await get_chat_response(
-            request.user_id, 
-            request.message, 
-            request.conversation_history
+            request.user_id,
+            request.message,
+            request.conversation_history,
+            request.files
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
