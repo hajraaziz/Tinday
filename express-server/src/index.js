@@ -46,7 +46,7 @@ const authLimiter = rateLimit({
 });
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_URL || "*" }));
 app.use(morgan("dev"));
 app.use(globalLimiter);
 

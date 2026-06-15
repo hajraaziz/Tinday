@@ -1,0 +1,51 @@
+envVarGroups:
+  - name: tinday-shared
+    envVars:
+      - key: SUPABASE_URL
+        sync: false                 # paste in dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false                 # paste in dashboard (secret)
+      - key: INTERNAL_SERVICE_SECRET
+        generateValue: true         # Render generates once, shared by both services
+
+services:
+  # --- FastAPI AI service (deploy first; Express needs its URL) ---
+  - type: web
+    name: tinday-fastapi
+    runtime: docker
+    dockerfilePath: ./fastapi-service/Dockerfile
+    dockerContext: ./fastapi-service
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: tinday-shared
+      - key: GEMINI_API_KEY
+        sync: false                 # paste ROTATED key in dashboard (secret)
+
+  # --- Express API gateway (public-facing) ---
+  - type: web
+    name: tinday-express
+    runtime: docker
+    dockerfilePath: ./express-server/Dockerfile
+    dockerContext: ./express-server
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: tinday-shared
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: FASTAPI_INTERNAL_URL
+        sync: false                 # set to https://tinday-fastapi.onrender.com after FastAPI deploys
+      - key: FRONTEND_URL
+        sync: false                 # set to the Vercel URL after the frontend deploys
+      # Optional Web Push — uncomment and set all three only if enabling push:
+      # - key: VAPID_PUBLIC_KEY
+      #   sync: false
+      # - key: VAPID_PRIVATE_KEY
+      #   sync: false
+      # - key: VAPID_SUBJECT
+      #   value: "mailto:hassan@xeniaplatform.io"
