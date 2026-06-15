@@ -33,3 +33,8 @@ export const me = async (req, res) => {
   const result = await authService.getCurrentUser(req.user.id);
   res.json(result);
 };
+
+export const oauthSync = async (req, res) => {
+  const result = await authService.syncOAuthProfile(req.user.id);
+  res.status(result.created ? 201 : 200).json(result);
+};

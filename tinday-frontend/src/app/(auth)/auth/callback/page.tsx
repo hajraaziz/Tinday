@@ -6,32 +6,86 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { apiPost } from "@/lib/api";
+import { setSupabaseSession, supabase } from "@/lib/supabase";
+import { connectSocket } from "@/lib/socket";
+import { useAuthStore } from "@/store/authStore";
+import type { Profile } from "@/types";
 
 type Status = "verifying" | "success" | "error";
 
 function CallbackInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const setProfile = useAuthStore((s) => s.setProfile);
   const [status, setStatus] = useState<Status>("verifying");
   const [resending, setResending] = useState(false);
 
   const tokenHash = params.get("token_hash");
   const email = params.get("email");
+  const oauthCode = params.get("code");
+  const oauthError = params.get("error");
 
   useEffect(() => {
     let cancelled = false;
 
-    async function verify() {
-      if (!tokenHash) {
+    // Google OAuth redirect: exchange the code for a session, ensure a profile
+    // row exists, then route into the app (onboarding or explore).
+    async function handleOAuth(code: string) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (cancelled) return;
+      if (error || !data.session || !data.user) {
         setStatus("error");
         return;
       }
-      // The confirm link is generated server-side, so we verify the OTP token
-      // hash directly (NOT exchangeCodeForSession — there's no PKCE verifier here).
+
+      // Map Supabase's session/user onto the app's stricter types.
+      const { session, user } = data;
+      const appUser = {
+        id: user.id,
+        email: user.email ?? "",
+        created_at: user.created_at,
+      };
+      setAuth({
+        user: appUser,
+        session: {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          token_type: "bearer",
+          expires_in: session.expires_in,
+          expires_at: session.expires_at ?? 0,
+          user: appUser,
+        },
+      });
+      await setSupabaseSession(session.access_token, session.refresh_token);
+      if (cancelled) return;
+      connectSocket();
+
+      // Guarantee a profiles row (first-time Google users don't have one) and
+      // route incomplete profiles into onboarding, everyone else to explore.
+      let profile: Profile | null = null;
+      try {
+        const result = await apiPost<{ profile: Profile; created: boolean }>(
+          "/api/auth/oauth-sync"
+        );
+        profile = result.profile;
+        setProfile(profile);
+      } catch {
+        // If the sync fails, fall through to onboarding so the user can recover.
+      }
+      if (cancelled) return;
+      setStatus("success");
+      const needsOnboarding = !profile?.skills || profile.skills.length === 0;
+      router.replace(needsOnboarding ? "/onboarding" : "/explore");
+    }
+
+    // Email confirmation: the confirm link is generated server-side, so we verify
+    // the OTP token hash directly (NOT exchangeCodeForSession — no PKCE verifier).
+    async function verifyEmail(hash: string) {
       const { error } = await supabase.auth.verifyOtp({
         type: "email",
-        token_hash: tokenHash,
+        token_hash: hash,
       });
       if (cancelled) return;
       if (error) {
@@ -51,11 +105,23 @@ function CallbackInner() {
       }, 1500);
     }
 
-    verify();
+    async function run() {
+      if (oauthError) {
+        setStatus("error");
+      } else if (oauthCode) {
+        await handleOAuth(oauthCode);
+      } else if (tokenHash) {
+        await verifyEmail(tokenHash);
+      } else {
+        setStatus("error");
+      }
+    }
+
+    run();
     return () => {
       cancelled = true;
     };
-  }, [tokenHash, email, router]);
+  }, [tokenHash, email, oauthCode, oauthError, router, setAuth, setProfile]);
 
   const handleResend = async () => {
     if (!email) {

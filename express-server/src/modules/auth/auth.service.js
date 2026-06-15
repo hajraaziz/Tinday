@@ -9,6 +9,17 @@ const EMAIL_REDIRECT_TO = `${FRONTEND_URL}/auth/callback`;
 const VERIFY_MESSAGE =
   "Account created. Please check your email to confirm your account.";
 
+// Fire-and-forget: ask FastAPI to (re)compute the profile embedding.
+const triggerEmbed = (userId, profileText) => {
+  axios
+    .post(
+      `${FASTAPI_URL}/embed`,
+      { user_id: userId, profile_text: profileText },
+      { headers: { "X-Internal-Key": INTERNAL_SECRET } },
+    )
+    .catch((err) => console.error("FastAPI embed call failed:", err.message));
+};
+
 export const register = async ({ email, password, name }) => {
   // 1. Create the user via the anon client's signUp so Supabase sends the
   //    hosted "Confirm signup" email. With "Confirm email" enabled this returns
@@ -45,16 +56,45 @@ export const register = async ({ email, password, name }) => {
   }
 
   // 3. Fire-and-forget: call FastAPI /embed
-  const profileText = `${name}`; // Initial text for embedding
-  axios
-    .post(
-      `${FASTAPI_URL}/embed`,
-      { user_id: user.id, profile_text: profileText },
-      { headers: { "X-Internal-Key": INTERNAL_SECRET } },
-    )
-    .catch((err) => console.error("FastAPI embed call failed:", err.message));
+  triggerEmbed(user.id, `${name}`); // Initial text for embedding
 
   return { message: VERIFY_MESSAGE, user };
+};
+
+// Ensure an OAuth user (e.g. Google) has a profiles row. Called after the
+// client exchanges the OAuth code for a session. Mirrors register's profile
+// creation: insert { id, name } if missing and kick off the embedding.
+export const syncOAuthProfile = async (userId) => {
+  const { data: existing, error: lookupError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+  if (existing) return { profile: existing, created: false };
+
+  // Derive a display name from the auth user's metadata (Google provides
+  // full_name / name), falling back to the email local-part.
+  const { data: userData, error: userError } =
+    await supabase.auth.admin.getUserById(userId);
+  if (userError) throw userError;
+
+  const meta = userData?.user?.user_metadata || {};
+  const email = userData?.user?.email || "";
+  const name = meta.full_name || meta.name || email.split("@")[0] || "New user";
+
+  const { data: profile, error: insertError } = await supabase
+    .from("profiles")
+    .insert({ id: userId, name })
+    .select("*")
+    .single();
+
+  if (insertError) throw insertError;
+
+  triggerEmbed(userId, `${name}`);
+
+  return { profile, created: true };
 };
 
 export const resendConfirmation = async ({ email }) => {

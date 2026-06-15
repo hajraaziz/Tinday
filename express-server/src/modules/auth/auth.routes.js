@@ -36,5 +36,6 @@ router.post("/refresh", validate(refreshSchema), authController.refresh);
 
 router.post("/logout", authenticate, authController.logout);
 router.get("/me", authenticate, authController.me);
+router.post("/oauth-sync", authenticate, authController.oauthSync);
 
 export default router;
